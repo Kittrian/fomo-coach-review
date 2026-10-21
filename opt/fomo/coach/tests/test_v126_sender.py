@@ -2,6 +2,7 @@
 Sender definitely refused, never a Jupiter fallback once Sender may have accepted."""
 import asyncio
 import base64
+import time
 
 import httpx
 import pytest
@@ -155,3 +156,44 @@ def test_v128_shadow_records_sender_would_have(monkeypatch):
     assert rec["sender"] == {"would_use": True, "tip_lamports": 5000, "tip_account": "4ACfpU",
                              "host": "ewr-sender.helius-rpc.com", "fallback": "rpc"}
     assert "SECRETKEY" not in str(rec)
+
+
+def test_parallel_rpc_copy_prevents_jupiter_fallback_after_sender_refusal(monkeypatch, keys, sender_on):
+    """A Sender 4xx is not proof the parallel RPC copy was refused."""
+    monkeypatch.setenv("LIVE_PARALLEL_SEND", "true")
+    monkeypatch.setenv("LIVE_SENDER_ALSO_RPC", "true")
+    monkeypatch.setenv("LIVE_DIRECT_CONFIRM_TIMEOUT_S", "0.06")
+    monkeypatch.setenv("LIVE_DIRECT_CONFIRM_POLL_S", "0.01")
+    monkeypatch.setenv("LIVE_DIRECT_REBROADCAST_S", "10")
+    rpc = FakeRpc(send_exc=pd.RpcRefused("rpc refused"), statuses=[])
+    monkeypatch.setattr(pd, "_rpc", rpc)
+    _patch_state(monkeypatch, _curve())
+    _sender(monkeypatch, pd.SenderError("sender http 400", definite=True))
+
+    r = asyncio.run(_swap())
+
+    # The same signed transaction was attempted by the concurrent RPC path. Even if Sender says 4xx,
+    # we cannot safely construct a different Jupiter buy when its landing status is unknown.
+    assert not r.get("fallback")
+    assert r.get("ambiguous") is True
+
+
+def test_confirmation_one_shot_event_does_not_busy_poll(monkeypatch, keys):
+    """A single WS notification must not turn confirmation-status lag into a tight polling loop."""
+    calls = {"n": 0}
+
+    async def unknown_status(sig, cl):
+        calls["n"] += 1
+        return None
+
+    monkeypatch.setattr(pd, "_status", unknown_status)
+    ev = asyncio.Event()
+    ev.set()
+    tm = {}
+    c = {"confirm_poll_s": 0.01, "rebroadcast_s": 10}
+    t0 = time.perf_counter()
+    result = asyncio.run(pd._confirm_loop("SIG", "SIGNED", None, c, tm, "buy", MINT, {}, False,
+                                          t0, time.time() + 0.07, time.time(), ev))
+    assert result["ambiguous"] is True
+    assert tm.get("ws_woke") is True
+    assert 2 <= calls["n"] <= 15, f"unexpected status poll count: {calls['n']}"
