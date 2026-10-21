@@ -46,7 +46,7 @@ def restart(why, flat_required):
         return
     live_fresh = fresh.get("live") if isinstance(fresh, dict) else None
     fields = ("open_positions", "inflight_buys", "pending_buys")
-    if not fresh.get("ok") or not isinstance(live_fresh, dict) or any(k not in live_fresh for k in fields):
+    if not isinstance(fresh, dict) or not fresh.get("ok") or not isinstance(live_fresh, dict) or any(k not in live_fresh for k in fields):
         alert("restart_deferred", "CRIT",
               f"refused coach restart ({why}): health is not sufficient to prove zero open/in-flight/pending trades",
               900)
