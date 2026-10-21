@@ -1,0 +1,5 @@
+[Unit]
+Description=refresh fomo egress allowlist IPs
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/fomo-egress refresh

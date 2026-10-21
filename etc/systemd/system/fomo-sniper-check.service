@@ -1,0 +1,13 @@
+[Unit]
+Description=Fomo sniper routine check (read-only; appends data/sniper_check.jsonl)
+[Service]
+Type=oneshot
+User=fomo
+Group=fomo
+WorkingDirectory=/opt/fomo/coach
+Environment=HOME=/opt/fomo/state PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/fomo/coach/.venv/bin/python /opt/fomo/coach/scripts/sniper_check.py 24
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/fomo/coach/data
+PrivateTmp=yes

@@ -1,0 +1,6 @@
+[Unit]
+Description=fomo-guard watchdog (health/ws/disk/balance/kill-stuck/heartbeat; never touches KILL)
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/fomo-guard
+TimeoutStartSec=90

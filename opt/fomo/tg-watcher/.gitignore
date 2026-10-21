@@ -1,0 +1,16 @@
+.env
+*.session
+*.session-journal
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.Python
+*.egg-info/
+.DS_Store
+
+pending_login_code.txt
+pending_login_2fa.txt
+*.session
+.env
+TELEGRAM_API_KEYS.local

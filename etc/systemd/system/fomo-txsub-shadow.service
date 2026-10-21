@@ -1,0 +1,20 @@
+[Unit]
+Description=Fomo read-only Helius transactionSubscribe shadow detector (no signing)
+After=network-online.target
+[Service]
+User=fomo
+Group=fomo
+WorkingDirectory=/opt/fomo/txsub-shadow
+Environment=HOME=/opt/fomo/state PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 FOMO_ENV_CREDS=helius-dev TXSUB_DATA_DIR=/opt/fomo/coach/data
+LoadCredentialEncrypted=helius-dev:/etc/credstore.encrypted/fomo-helius-dev.cred
+ExecStart=/opt/fomo/coach/.venv/bin/python /opt/fomo/bin/credexec.py /opt/fomo/coach/.venv/bin/python /opt/fomo/txsub-shadow/txsub_shadow.py
+Restart=always
+RestartSec=15
+MemoryMax=300M
+CPUQuota=25%
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/fomo/coach/data
+PrivateTmp=yes
+[Install]
+WantedBy=multi-user.target

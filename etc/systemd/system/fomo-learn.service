@@ -1,0 +1,19 @@
+[Unit]
+Description=fomo daily self-learn (PAPER ONLY; reads data, writes data/learn only; never signer/.env/KILL/live config)
+
+[Service]
+Type=oneshot
+User=fomo
+Group=fomo
+WorkingDirectory=/opt/fomo/coach
+Environment=HOME=/opt/fomo/state PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/fomo/coach/.venv/bin/python /opt/fomo/coach/scripts/learn_daily.py
+ProtectSystem=strict
+ReadWritePaths=/opt/fomo/coach/data/learn
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+NoNewPrivileges=yes
+InaccessiblePaths=-/etc/fomo-signer -/opt/fomo/secrets -/opt/fomo/coach/.env -/etc/credstore.encrypted
+TimeoutStartSec=600
+Nice=10

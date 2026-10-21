@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""fomo-guard: minute watchdog for the coach. Root-owned, run by fomo-guard.timer.
+Never touches the kill switch, the signer, or the tripwire. Alerts -> /var/lib/fomo-guard/alerts.jsonl
+(+ Telegram if /etc/fomo-guard/telegram.env has TG_BOT_TOKEN and TG_CHAT_ID)."""
+import json, os, shutil, subprocess, time, urllib.request, urllib.parse
+from datetime import datetime
+from zoneinfo import ZoneInfo
+CT = ZoneInfo("America/Chicago"); NOW = time.time(); NOW_MS = int(NOW * 1000)
+D = "/var/lib/fomo-guard"; os.makedirs(D, mode=0o750, exist_ok=True)
+SF, AF = f"{D}/state.json", f"{D}/alerts.jsonl"
+HEALTH = "http://127.0.0.1:8790/health"
+KILL, HALT = "/opt/fomo/state/KILL", "/var/lib/fomo-signer/HALT"
+DET = "/opt/fomo/coach/data/scout_detections.jsonl"; SWEEP = "/opt/fomo/state/sweep.jsonl"; ENV = "/opt/fomo/coach/.env"
+try: st = json.load(open(SF))
+except Exception: st = {}
+st.setdefault("last_alert", {}); st.setdefault("restarts", [])
+
+def ct(ts=None): return datetime.fromtimestamp(ts or NOW, CT).strftime("%a %b %-d %-I:%M %p CT")
+def tg(text):
+    try:
+        cfg = dict(l.strip().split("=", 1) for l in open("/etc/fomo-guard/telegram.env") if "=" in l and not l.startswith("#"))
+        tok, chat = cfg.get("TG_BOT_TOKEN"), cfg.get("TG_CHAT_ID")
+        if not (tok and chat): return False
+        data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
+        urllib.request.urlopen(f"https://api.telegram.org/bot{tok}/sendMessage", data, timeout=8); return True
+    except Exception: return False
+def alert(kind, level, msg, every_s=6 * 3600, **extra):
+    last = st["last_alert"].get(kind, 0)
+    if NOW - last < every_s: return
+    st["last_alert"][kind] = NOW
+    rec = {"ts_ms": NOW_MS, "ct": ct(), "kind": kind, "level": level, "msg": msg, **extra}
+    rec["telegram"] = tg(f"[fomo {level}] {msg}")
+    with open(AF, "a") as f: f.write(json.dumps(rec) + "\n")
+    subprocess.run(["logger", "-t", "fomo-guard", f"{level} {kind}: {msg}"])
+def clear(kind): st["last_alert"].pop(kind, None)
+def restart(why, flat_required):
+    st["restarts"] = [t for t in st["restarts"] if NOW - t < 3600]
+    if len(st["restarts"]) >= 3:
+        alert("restart_limit", "CRIT", f"wanted to restart coach ({why}) but 3 restarts in the last hour - leaving it for a human", 1800); return
+    st["restarts"].append(NOW)
+    subprocess.run(["systemctl", "restart", "fomo-coach"], timeout=60)
+    alert("restart", "WARN", f"restarted fomo-coach: {why}", 0)
+def envf(k, d):
+    try:
+        for l in open(ENV):
+            if l.startswith(k + "="): return float(l.split("=", 1)[1])
+    except Exception: pass
+    return d
+
+# 1) health watchdog
+h = None
+try: h = json.load(urllib.request.urlopen(HEALTH, timeout=8))
+except Exception as e: err = type(e).__name__
+if h and h.get("ok"):
+    if st.get("health_fail", 0) >= 3: alert("health_recovered", "INFO", "coach health is back", 0)
+    st["health_fail"] = 0; clear("health")
+else:
+    st["health_fail"] = st.get("health_fail", 0) + 1
+    if st["health_fail"] >= 3:
+        alert("health", "CRIT", f"coach /health failing for {st['health_fail']} min", 900)
+        if st["health_fail"] in (3, 10, 30): restart(f"/health failed {st['health_fail']} min in a row", False)
+
+live = (h or {}).get("live") or {}
+busy = (live.get("open_positions") or 0) + (live.get("inflight_buys") or 0) + (live.get("pending_buys") or 0)
+
+# 2) websocket stall
+if h:
+    bad = []
+    for name, sub in (("scout", ((h.get("scout") or {}).get("subscriptions") or {})),
+                      ("onchain", ((h.get("fomo_onchain") or {}).get("subscriptions") or {}))):
+        if sub and (sub.get("connected", 0) < sub.get("connections", 0) or sub.get("acked", 0) < sub.get("wanted", 0)):
+            bad.append(f"{name} {sub.get('connected')}/{sub.get('connections')} conn, {sub.get('acked')}/{sub.get('wanted')} subs")
+    if bad:
+        st.setdefault("ws_bad_since", NOW)
+        mins = (NOW - st["ws_bad_since"]) / 60
+        if mins >= 5: alert("ws_stall", "WARN", f"websocket degraded {mins:.0f} min: " + "; ".join(bad), 3600)
+        if mins >= 10 and busy == 0 and NOW - st.get("ws_restart", 0) > 1800:
+            st["ws_restart"] = NOW; restart("websocket degraded >10 min (0 open)", True)
+    else:
+        st.pop("ws_bad_since", None)
+    try:
+        age = (NOW - os.path.getmtime(DET)) / 60
+        if age > 45: alert("detections_stale", "WARN", f"no scout detections written for {age:.0f} min (ws may be silently stalled)", 3 * 3600)
+    except FileNotFoundError: pass
+
+# 3) disk guard
+du = shutil.disk_usage("/"); free_pct = du.free / du.total * 100
+if free_pct < 10 or du.free < 15e9:
+    alert("disk", "CRIT" if free_pct < 5 else "WARN", f"disk free {free_pct:.1f}% ({du.free/1e9:.0f} GB)", 3 * 3600)
+try:
+    sz = os.path.getsize("/opt/fomo/coach/logs/coach.err.log")
+    if sz > 1e9: alert("log_size", "WARN", f"coach.err.log is {sz/1e9:.1f} GB (logrotate not keeping up)", 12 * 3600)
+except FileNotFoundError: pass
+
+# 4) balance below reserve (latest hourly sweep reading)
+reserve = envf("LIVE_MIN_SOL_RESERVE", 0.5); size = envf("LIVE_MAX_SOL_PER_TRADE", 0.4)
+bal = None
+try:
+    for l in open(SWEEP):
+        try: r = json.loads(l)
+        except Exception: continue
+        if r.get("balance_sol") is not None: bal, bal_ms = r["balance_sol"], r["ts_ms"]
+except FileNotFoundError: pass
+if bal is not None:
+    if bal < reserve: alert("balance", "CRIT", f"bot wallet {bal:.3f} SOL is BELOW the {reserve} SOL reserve - buys will refuse", 3 * 3600)
+    elif bal < reserve + 2 * size: alert("balance_low", "WARN", f"bot wallet {bal:.3f} SOL - within 2 trades of the {reserve} SOL reserve", 6 * 3600)
+
+# 5) kill switch stuck on (report only - never touches it)
+if os.path.exists(KILL) or os.path.exists(HALT):
+    st.setdefault("kill_since", NOW)
+    if NOW - st["kill_since"] > 1800:
+        alert("kill_on", "WARN", f"trading paused: {'KILL' if os.path.exists(KILL) else ''} {'HALT' if os.path.exists(HALT) else ''} on since {ct(st['kill_since'])}", 3 * 3600)
+else: st.pop("kill_since", None); clear("kill_on")
+
+# 6) daily heartbeat 8 AM CT
+today = datetime.now(CT).strftime("%Y-%m-%d")
+if datetime.now(CT).hour >= 8 and st.get("heartbeat") != today:
+    st["heartbeat"] = today
+    cap = live.get("trade_cap") or {}
+    active = subprocess.run(["systemctl", "is-active", "fomo-coach", "fomo-signer", "fomo-tripwire", "fomo-backup.timer"], capture_output=True, text=True).stdout.split()
+    alert("heartbeat", "INFO", f"daily heartbeat: health={'ok' if h else 'DOWN'} kill={live.get('kill')} open={live.get('open_positions')} "
+          f"trades24h={cap.get('display')} pnl24h={cap.get('realized_pnl_today_sol')} SOL balance={bal} SOL disk_free={free_pct:.0f}% "
+          f"units={','.join(active)} restarts_1h={len(st['restarts'])}", 0)
+
+json.dump(st, open(SF + ".tmp", "w")); os.replace(SF + ".tmp", SF)

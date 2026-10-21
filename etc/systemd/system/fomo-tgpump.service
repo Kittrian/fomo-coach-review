@@ -1,0 +1,17 @@
+[Unit]
+Description=Fomo PAPER-ONLY Telegram pump-group watcher (public t.me/s previews; never trades live)
+After=network-online.target fomo-egress.service
+[Service]
+User=fomo
+Group=fomo
+WorkingDirectory=/opt/fomo/coach
+Environment=HOME=/opt/fomo/state PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 FOMO_ENV_CREDS=coach-secrets PAPER_REALISM_SNAPSHOT_ENABLED=false
+LoadCredentialEncrypted=coach-secrets:/etc/credstore.encrypted/fomo-coach-secrets.cred
+ExecStart=/opt/fomo/coach/.venv/bin/python /opt/fomo/bin/credexec.py /opt/fomo/coach/.venv/bin/python /opt/fomo/coach/scripts/paper_tgpump.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+MemoryMax=300M
+CPUQuota=30%
+[Install]
+WantedBy=multi-user.target

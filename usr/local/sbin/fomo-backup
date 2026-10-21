@@ -1,0 +1,28 @@
+#!/bin/bash
+# Nightly encrypted backup of fomo state/data/config. Encrypted to the box's public key (private key never on this server).
+# Excludes plaintext secrets (.env sanitized; secrets/ dir excluded). Encrypted systemd creds included (host-bound).
+set -euo pipefail
+umask 077
+OUT=/var/backups/fomo; KEEP_DAYS=14; TS=$(TZ=America/Chicago date +%Y%m%d-%H%M)
+export GNUPGHOME=/root/.fomo-backup-gnupg
+install -d -m 750 -o root -g fomo-ops $OUT
+W=$(mktemp -d); trap 'rm -rf $W' EXIT
+SECRE='(KEY|TOKEN|SECRET|PASS|PRIV|SESSION|SEED|MNEMONIC|HASH|COOKIE|AUTH|CRED|API_ID)'
+mkdir -p $W/sanitized
+for f in /opt/fomo/coach/.env /etc/fomo-signer/signer.env /etc/fomo-signer/tripwire.env; do
+  [ -f "$f" ] && sed -E "/^[A-Z0-9_]*${SECRE}[A-Z0-9_]*=/s/=.*/=<omitted>/; s/(api-key=)[^&\" ]+/\1<omitted>/g" "$f" > "$W/sanitized/$(echo $f | tr / _)"
+done
+set +e; tar --warning=no-file-changed --warning=no-file-removed -C / -czf $W/fomo-$TS.tgz \
+  --exclude=opt/fomo/coach/.venv --exclude=opt/fomo/coach/.env --exclude=opt/fomo/secrets --exclude='*/__pycache__' \
+  --exclude=opt/fomo/python --exclude=opt/fomo/bin --exclude=opt/fomo/tg-watcher/.venv --exclude='*.session' \
+  --exclude=opt/fomo/coach/logs --exclude=opt/fomo/state/Library --exclude=opt/fomo/state/.uv-cache --exclude=opt/fomo/state/.cache \
+  opt/fomo etc/systemd/system/fomo-coach.service etc/systemd/system/fomo-coach.service.d \
+  $(cd / && ls -d etc/credstore.encrypted/fomo-*.cred 2>/dev/null) \
+  var/lib/fomo-tripwire var/lib/fomo-signer/decisions.jsonl \
+  -C $W sanitized; rc=$?; set -e; [ $rc -le 1 ] || { logger -t fomo-backup "tar failed rc=$rc"; exit $rc; }
+gpg --batch --yes --trust-model always -r fomo-backup -o $OUT/fomo-$TS.tgz.gpg -e $W/fomo-$TS.tgz
+chgrp fomo-ops $OUT/fomo-$TS.tgz.gpg; chmod 640 $OUT/fomo-$TS.tgz.gpg
+sha256sum $OUT/fomo-$TS.tgz.gpg | sed "s#$OUT/##" > $OUT/fomo-$TS.sha256; chgrp fomo-ops $OUT/fomo-$TS.sha256; chmod 640 $OUT/fomo-$TS.sha256
+find $OUT -name 'fomo-*' -mtime +$KEEP_DAYS -delete
+logger -t fomo-backup "ok $OUT/fomo-$TS.tgz.gpg $(stat -c %s $OUT/fomo-$TS.tgz.gpg)B"
+echo "$OUT/fomo-$TS.tgz.gpg"

@@ -1,0 +1,19 @@
+[Unit]
+Description=fomo self-learn v2 tick fetch (PAPER/OFFLINE data; public pump.fun trade history; writes data/learn/ticks only)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=fomo
+Group=fomo
+WorkingDirectory=/opt/fomo/coach
+Environment=HOME=/opt/fomo/state PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/fomo/coach/.venv/bin/python /opt/fomo/coach/scripts/learn_ticks.py
+ProtectSystem=strict
+ReadWritePaths=/opt/fomo/coach/data/learn
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+InaccessiblePaths=-/etc/fomo-signer -/opt/fomo/secrets -/opt/fomo/coach/.env -/etc/credstore.encrypted
+TimeoutStartSec=3300
+Nice=15

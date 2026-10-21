@@ -1,0 +1,34 @@
+[Unit]
+Description=fomo tripwire — wallet watchdog (TRIP_MODE in /etc/fomo-signer/tripwire.env)
+After=network-online.target fomo-signer.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/fomo-signer/signer.env
+EnvironmentFile=/etc/fomo-signer/tripwire.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 FOMO_ENV_CREDS=signer-env
+LoadCredentialEncrypted=signer-env:/etc/credstore.encrypted/fomo-signer-env.cred
+ExecStart=/opt/fomo-signer/.venv/bin/python /opt/fomo-signer/bin/credexec.py /opt/fomo-signer/.venv/bin/python /opt/fomo-signer/tripwire/tripwire.py
+StateDirectory=fomo-tripwire
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+ReadWritePaths=/var/lib/fomo-tripwire /var/lib/fomo-signer /opt/fomo/state
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=256M
+CPUQuota=25%
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

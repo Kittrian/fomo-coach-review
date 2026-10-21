@@ -1,0 +1,7 @@
+[Unit]
+Description=fomo nightly encrypted backup (state/data/config; no plaintext secrets)
+[Service]
+Type=oneshot
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/usr/local/sbin/fomo-backup

@@ -1,0 +1,15 @@
+[Unit]
+Description=fomo hourly profit sweep (SOL above the 1.0 SOL float → cold address; via fomo-signer)
+After=fomo-signer.service fomo-coach.service
+
+[Service]
+Type=oneshot
+User=fomo
+Group=fomo
+EnvironmentFile=/etc/fomo-signer/signer.env
+EnvironmentFile=/etc/fomo-signer/sweep.env
+Environment=PYTHONDONTWRITEBYTECODE=1 FOMO_ENV_CREDS=signer-env
+LoadCredentialEncrypted=signer-env:/etc/credstore.encrypted/fomo-signer-env.cred
+ExecStart=/opt/fomo-signer/.venv/bin/python /opt/fomo-signer/bin/credexec.py /opt/fomo-signer/.venv/bin/python /opt/fomo-signer/sweep/sweep.py
+ReadWritePaths=/opt/fomo/state
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

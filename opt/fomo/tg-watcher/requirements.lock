@@ -1,0 +1,10 @@
+iniconfig==2.3.1
+packaging==26.3
+pluggy==1.6.0
+pyaes==1.6.1
+pyasn1==0.6.4
+Pygments==2.21.0
+pytest==9.1.1
+python-dotenv==1.2.4
+rsa==4.9.1
+Telethon==1.45.0

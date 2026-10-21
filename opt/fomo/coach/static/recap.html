@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Day Recap · Fomo Signal Coach</title>
+<style>
+  :root {
+    --bg:#0d1117; --bg2:#0a0e14; --card:#161b22; --card2:#1c2128; --border:#30363d; --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --good:#3fb950; --bad:#f85149; --warn:#d29922; --gold:#e3b341;
+    --c-tp:#3fb950; --c-trail:#39c5cf; --c-scout:#f0883e; --c-rug:#f85149; --c-stop:#a371f7; --c-other:#8b949e; --c-buy:#58a6ff;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:
+    radial-gradient(1200px 500px at 10% -10%, #1f6feb22, transparent 60%), radial-gradient(900px 400px at 100% 0%, #3fb95014, transparent 60%), var(--bg);
+    color:var(--text); line-height:1.45; min-height:100vh; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  header { position:sticky; top:0; z-index:5; backdrop-filter:blur(8px); background:#0d1117cc; border-bottom:1px solid var(--border);
+    padding:.8rem 1.4rem; display:flex; flex-wrap:wrap; gap:.6rem 1rem; align-items:center; justify-content:space-between; }
+  h1 { font-size:1.15rem; margin:0; font-weight:650; letter-spacing:.2px; }
+  h1 .sub { color:var(--muted); font-weight:500; }
+  .badge { display:inline-flex; align-items:center; gap:.35rem; font-size:.74rem; padding:.18rem .55rem; border-radius:999px;
+    border:1px solid var(--border); color:var(--muted); background:#21262d; white-space:nowrap; }
+  .badge.ok { color:var(--good); border-color:#238636; } .badge.bad { color:var(--bad); border-color:#da3633; }
+  .badge.warn { color:var(--gold); border-color:#9e6a03; } .badge.info { color:var(--accent); border-color:#1f6feb; }
+  .dot { width:7px; height:7px; border-radius:50%; background:currentColor; display:inline-block; }
+  .ctrl { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
+  button, input[type=date] { background:#21262d; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:.32rem .65rem;
+    font:inherit; font-size:.82rem; cursor:pointer; color-scheme:dark; }
+  button:hover { border-color:#8b949e; } button:disabled { opacity:.4; cursor:default; }
+  main { padding:1.1rem 1.4rem 3rem; max-width:1180px; margin:0 auto; display:grid; gap:1rem; }
+  .card { background:linear-gradient(180deg,#161b22,#13171d); border:1px solid var(--border); border-radius:14px; padding:1rem 1.15rem; }
+  .card h2 { margin:0 0 .6rem; font-size:.95rem; font-weight:600; display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .card h2 .hint { color:var(--muted); font-weight:400; font-size:.78rem; }
+  .muted { color:var(--muted); } .small { font-size:.8rem; } .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82em; }
+  .pos { color:var(--good); } .neg { color:var(--bad); }
+  .chips { display:flex; flex-wrap:wrap; gap:.4rem; }
+  .take { position:relative; border:1px solid transparent; background:linear-gradient(#161b22,#161b22) padding-box,
+    linear-gradient(120deg,#1f6feb,#3fb950 50%,#e3b341) border-box; }
+  .take ul { margin:.2rem 0 0; padding-left:1.1rem; } .take li { margin:.22rem 0; }
+  .take li:first-child { font-size:1.08rem; font-weight:600; list-style:none; margin-left:-1.1rem; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:.8rem; }
+  .tile { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:.8rem .95rem; min-height:96px; }
+  .tile .k { color:var(--muted); font-size:.74rem; text-transform:uppercase; letter-spacing:.6px; }
+  .tile .v { font-size:1.55rem; font-weight:700; font-variant-numeric:tabular-nums; margin-top:.15rem; }
+  .tile .s { color:var(--muted); font-size:.78rem; margin-top:.1rem; }
+  .tile.hero { background:linear-gradient(135deg,#0f2a1a,#161b22 70%); border-color:#238636; }
+  .tile.hero.neg { background:linear-gradient(135deg,#2d1214,#161b22 70%); border-color:#da3633; }
+  .chart-wrap { position:relative; }
+  svg text { fill:var(--muted); font-size:11px; }
+  .legend { display:flex; gap:.9rem; flex-wrap:wrap; font-size:.76rem; color:var(--muted); margin-top:.4rem; }
+  .legend i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:.3rem; vertical-align:-1px; }
+  #tip { position:absolute; pointer-events:none; background:#0d1117f2; border:1px solid var(--border); border-radius:8px; padding:.4rem .55rem;
+    font-size:.78rem; display:none; max-width:260px; box-shadow:0 6px 24px #0008; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:.8rem; }
+  .trade { background:var(--card2); border:1px solid var(--border); border-left:4px solid var(--c-other); border-radius:12px; padding:.75rem .85rem; }
+  .trade.cat-tp,.trade.cat-trail { border-left-color:var(--c-trail); } .trade.cat-scout { border-left-color:var(--c-scout); }
+  .trade.cat-rug { border-left-color:var(--c-rug); } .trade.cat-stop { border-left-color:var(--c-stop); }
+  .trade.win { box-shadow:inset 0 0 0 1px #2386364d; }
+  .trade .top { display:flex; justify-content:space-between; align-items:baseline; gap:.5rem; }
+  .trade .sym { font-weight:650; font-size:1rem; }
+  .trade .pnl { font-weight:700; font-variant-numeric:tabular-nums; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:.12rem .7rem; font-size:.8rem; margin:.45rem 0; }
+  .kv .k { color:var(--muted); }
+  .exits { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
+  .ex { font-size:.74rem; padding:.15rem .5rem; border-radius:999px; border:1px solid; }
+  .ex.tp { color:var(--c-tp); border-color:#3fb95066; } .ex.trail { color:var(--c-trail); border-color:#39c5cf66; }
+  .ex.scout { color:var(--c-scout); border-color:#f0883e66; } .ex.rug { color:var(--c-rug); border-color:#f8514966; }
+  .ex.stop { color:var(--c-stop); border-color:#a371f766; } .ex.other { color:var(--muted); border-color:var(--border); }
+  .why { font-size:.82rem; margin-top:.2rem; }
+  .bar { display:flex; height:8px; border-radius:6px; overflow:hidden; background:#21262d; margin-top:.35rem; }
+  .bar span { display:block; height:100%; }
+  .links { display:flex; gap:.6rem; font-size:.76rem; margin-top:.4rem; flex-wrap:wrap; }
+  .block { background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:.7rem .85rem; }
+  .verdict { font-size:.72rem; font-weight:650; padding:.15rem .5rem; border-radius:999px; text-transform:uppercase; letter-spacing:.4px; }
+  .v-missed_winner { background:#e3b34122; color:var(--gold); border:1px solid #e3b34166; }
+  .v-missed_pump { background:#e3b34114; color:#d2a64a; border:1px solid #e3b34144; }
+  .v-dodged_rug,.v-dodged_dump { background:#3fb95022; color:var(--good); border:1px solid #3fb95066; }
+  .v-flat,.v-unknown { background:#8b949e22; color:var(--muted); border:1px solid var(--border); }
+  .spark { display:flex; gap:3px; align-items:flex-end; height:34px; margin-top:.4rem; }
+  .spark div { flex:1; border-radius:3px 3px 0 0; min-height:2px; position:relative; }
+  .spark-l { display:flex; gap:3px; font-size:.66rem; color:var(--muted); } .spark-l span { flex:1; text-align:center; }
+  table { width:100%; border-collapse:collapse; font-size:.82rem; }
+  th, td { text-align:left; padding:.38rem .5rem; border-bottom:1px solid #21262d; font-variant-numeric:tabular-nums; }
+  th { color:var(--muted); font-weight:500; font-size:.74rem; text-transform:uppercase; letter-spacing:.4px; }
+  .big { font-size:1.6rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .speedgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.7rem; margin-bottom:.7rem; }
+  .empty { color:var(--muted); padding:1rem 0; text-align:center; font-size:.88rem; }
+  details summary { cursor:pointer; color:var(--muted); font-size:.82rem; }
+  .err { color:var(--bad); }
+  .wal { display:grid; grid-template-columns:minmax(230px,1fr) minmax(260px,1.4fr); gap:1rem; }
+  @media (max-width:820px) { .wal { grid-template-columns:1fr; } }
+  .wal + .wal { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); }
+  .addr { display:inline-flex; gap:.35rem; align-items:center; }
+  .copy { padding:.12rem .45rem; font-size:.72rem; border-radius:6px; }
+  .wbig { font-size:1.9rem; font-weight:750; font-variant-numeric:tabular-nums; letter-spacing:-.5px; }
+  .wsub { color:var(--muted); font-size:.82rem; }
+  .delta { display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap; margin:.35rem 0 .2rem; }
+  .tx-type { font-size:.7rem; padding:.08rem .45rem; border-radius:999px; border:1px solid var(--border); white-space:nowrap; }
+  .tt-buy { color:var(--c-buy); border-color:#1f6feb88; } .tt-sell { color:var(--c-tp); border-color:#23863688; }
+  .tt-failed { color:var(--bad); border-color:#da363388; } .tt-transfer { color:var(--gold); border-color:#9e6a0388; }
+  .scroll { max-height:300px; overflow:auto; }
+  footer { color:var(--muted); font-size:.75rem; text-align:center; padding:0 1rem 2rem; }
+  .embedded header { position:static; }
+  @media (max-width:620px) { header { padding:.7rem .9rem; } main { padding:.8rem .8rem 2rem; } .tile .v { font-size:1.3rem; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="ctrl">
+    <h1>📅 Day Recap <span class="sub">· Fomo Signal Coach</span></h1>
+    <span class="badge" id="ver">…</span>
+    <a class="badge info" href="/ui/">Coach UI</a>
+    <a class="badge" href="/health" target="_blank">health</a>
+  </div>
+  <div class="ctrl">
+    <button id="prev" title="previous day">◀</button>
+    <input type="date" id="day" />
+    <button id="next" title="next day">▶</button>
+    <button id="today">Today</button>
+    <span class="badge" id="upd">loading…</span>
+  </div>
+</header>
+<main>
+  <div class="chips" id="chips"></div>
+  <section class="card take" id="takeCard"><h2>🧠 Coach's take <span class="hint" id="takeHint"></span></h2><ul id="take"><li>Loading…</li></ul></section>
+  <section class="tiles" id="tiles"></section>
+  <section class="card" id="walletCard"><h2>👛 Wallet <span class="hint">read-only · public address · free public RPC · refreshes ~every 45 s</span></h2><div id="wallet"><div class="empty">Loading wallet…</div></div></section>
+  <section class="card">
+    <h2>Cumulative realized P&amp;L <span class="hint">steps at every sell · ▲ buys · ✕ blocked buys · dashed = deploys</span></h2>
+    <div class="chart-wrap"><svg id="chart" width="100%" height="270" role="img" aria-label="Cumulative P&L chart"></svg><div id="tip"></div></div>
+    <div class="legend">
+      <span><i style="background:var(--c-buy)"></i>buy</span><span><i style="background:var(--c-tp)"></i>2× take-profit</span>
+      <span><i style="background:var(--c-trail)"></i>trailing stop</span><span><i style="background:var(--c-scout)"></i>scout sold</span>
+      <span><i style="background:var(--c-rug)"></i>rug exit</span><span><i style="background:var(--c-stop)"></i>stop / time exit</span>
+      <span><i style="background:var(--gold)"></i>blocked buy</span>
+    </div>
+  </section>
+  <section class="card"><h2>Trades <span class="hint" id="tradesHint"></span></h2><div class="grid2" id="trades"></div></section>
+  <section class="card"><h2>🛡️ Dodged / skipped <span class="hint">live safety gates · what the coin did after (learning log + DEX Screener, cached)</span></h2><div class="grid2" id="blocks"></div></section>
+  <section class="card"><h2>⚡ Speed <span class="hint">scout buy → our position · slots behind the scout · our fill vs his</span></h2><div id="speed"></div></section>
+  <section class="card"><h2>📋 FOMO wallets paper test <span class="hint">paper only · zakum · 0.20 SOL · live exit rules</span></h2><div id="ftp"><div class="empty">Loading…</div></div></section>
+  <section class="card"><h2>🆕 New wallets v3 paper test <span class="hint">paper only · 10 vetted wallets · 0.20 SOL · live exit / exit on wallet sell / HALF2X_C30 · 7 days</span></h2><div id="v3"><div class="empty">Loading…</div></div></section>
+  <section class="card"><h2>⚡ Momentum paper test <span class="hint">paper only · cluster + chatter + flow + health score · 0.20 SOL · live exit + T30</span></h2><div id="mom"><div class="empty">Loading…</div></div></section>
+  <section class="card"><h2>🧪 Exit-test scoreboard <span class="hint">paper-only exit variants vs the live plan (A)</span></h2><div id="xv"></div></section>
+  <section class="card"><h2>📒 Learning log &amp; paper <span class="hint">descriptive only</span></h2><div id="learn"></div></section>
+</main>
+<footer>Read-only view · nothing here can buy, sell or change settings · times are America/Chicago (CT)</footer>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const TZ = "America/Chicago";
+  const fmtT = new Intl.DateTimeFormat("en-US", {timeZone: TZ, hour: "numeric", minute: "2-digit"});
+  const fmtTS = new Intl.DateTimeFormat("en-US", {timeZone: TZ, hour: "numeric", minute: "2-digit", second: "2-digit"});
+  const tCT = (ms) => ms ? fmtTS.format(new Date(ms)) : "";
+  const sol = (x, d = 4) => x == null ? "—" : `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(d)}`;
+  const pct = (x, d = 1) => x == null ? "—" : `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(d)}%`;
+  const cls = (x) => x == null ? "" : x >= 0 ? "pos" : "neg";
+  const short = (a, n = 4) => !a ? "" : a.length > 2 * n + 1 ? `${a.slice(0, n)}…${a.slice(-n)}` : a;
+  const dur = (s) => s == null ? "—" : s < 90 ? `${s.toFixed(0)} s` : s < 5400 ? `${(s / 60).toFixed(1)} min` : `${(s / 3600).toFixed(1)} h`;
+  const usd = (x) => x == null ? "—" : x >= 1e6 ? `$${(x / 1e6).toFixed(2)}M` : x >= 1e3 ? `$${(x / 1e3).toFixed(1)}k` : `$${x.toFixed(0)}`;
+  const CAT = {tp: "var(--c-tp)", trail: "var(--c-trail)", scout: "var(--c-scout)", rug: "var(--c-rug)", stop: "var(--c-stop)", other: "var(--c-other)"};
+  const CATN = {tp: "2× TP", trail: "Trail", scout: "Scout sold", rug: "Rug exit", stop: "Stop", other: "Exit"};
+  const ARM = {scout_solo: "scout solo", scout_confirmed: "scout confirmed", fluffy_pump_dump: "Fluffy", zyrox: "Zyrox"};
+  const links = (mint, sig) => `<div class="links"><a href="https://dexscreener.com/solana/${esc(mint)}" target="_blank" rel="noopener">DEX Screener ↗</a>
+     <a href="https://solscan.io/token/${esc(mint)}" target="_blank" rel="noopener">Solscan ↗</a>${sig ? `<a href="https://solscan.io/tx/${esc(sig)}" target="_blank" rel="noopener">buy tx ↗</a>` : ""}
+     <span class="muted mono">${esc(short(mint, 6))}</span></div>`;
+
+  const todayCT = () => new Intl.DateTimeFormat("en-CA", {timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit"}).format(new Date());
+  const params = new URLSearchParams(location.search);
+  let day = params.get("date") || todayCT();
+  let timer = null, last = null;
+  const shift = (d, n) => { const [y, m, dd] = d.split("-").map(Number); const t = new Date(Date.UTC(y, m - 1, dd + n)); return t.toISOString().slice(0, 10); };
+
+  function setDay(d) {
+    day = d; $("day").value = d; $("next").disabled = d >= todayCT();
+    const u = new URL(location.href); if (d === todayCT()) u.searchParams.delete("date"); else u.searchParams.set("date", d);
+    history.replaceState(null, "", u); load();
+  }
+
+  async function load() {
+    $("upd").textContent = "loading…";
+    try {
+      const r = await fetch(`/api/recap?date=${encodeURIComponent(day)}`, {cache: "no-store"});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      loadWallet(); loadFomoTop(); loadV3(); loadMomentum();
+      const j = await r.json(); last = j; render(j);
+      $("upd").innerHTML = `<span class="dot" style="color:${j.is_today ? "var(--good)" : "var(--muted)"}"></span> ${j.is_today ? "live · " : ""}updated ${esc(fmtTS.format(new Date(j.generated_ms)))} CT`;
+    } catch (e) { $("upd").innerHTML = `<span class="err">load failed: ${esc(e.message)}</span>`; }
+    clearTimeout(timer);
+    if (day === todayCT()) timer = setTimeout(() => { if (!document.hidden) load(); else timer = setTimeout(load, 45000); }, 45000);
+  }
+
+  function render(j) {
+    $("ver").textContent = j.version ? `v${j.version.replace(/-demo$/, "")}` : "";
+    // status chips
+    const st = j.status;
+    let ch = "";
+    if (st) {
+      ch += `<span class="badge ${st.buys_enabled ? "ok" : "bad"}"><span class="dot"></span>live buys ${st.buys_enabled ? "ON" : "OFF"}</span>`;
+      ch += `<span class="badge ${st.kill ? "bad" : "ok"}">kill switch ${st.kill ? "ON" : "off"}</span>`;
+      (st.arms || []).forEach(a => ch += `<span class="badge info">${esc(ARM[a] || a)}</span>`);
+      ch += `<span class="badge">${st.open_positions || 0} open · ${st.inflight_buys || 0} inflight · ${st.pending_buys || 0} pending</span>`;
+      if (st.trade_cap) ch += `<span class="badge ${st.trade_cap.extension === "blocked" ? "warn" : st.trade_cap.extension === "unlocked" ? "ok" : ""}" title="${esc(st.trade_cap.reason || "")}">trades ${esc(st.trade_cap.display)}${st.trade_cap.window === "rolling24h" ? " (24h)" : ""}${st.trade_cap.window === "rolling24h" && st.trade_cap.next_slot_frees ? " · next slot " + esc(st.trade_cap.next_slot_frees) : ""}${st.trade_cap.extension === "unlocked" ? " · profit ext" : st.trade_cap.extension === "eligible" ? " · ext eligible" : st.trade_cap.extension === "blocked" ? " · ext blocked" : ""}</span>`;
+      if (st.scout_bench && st.scout_bench.enabled) ch += `<span class="badge ${st.scout_bench.benched_count ? "warn" : ""}" title="${esc((st.scout_bench.benched || []).map(b => b.wallet + " — " + (b.why || "")).join("; "))}">bench ${st.scout_bench.benched_count ? esc((st.scout_bench.benched || []).map(b => b.wallet).join(", ")) : "none"}</span>`;
+      if (st.trail_pct != null) ch += `<span class="badge">trail ${Math.round(st.trail_pct * 100)}%</span>`;
+      if (st.warnings) ch += `<span class="badge warn">${st.warnings} warning${st.warnings > 1 ? "s" : ""}</span>`;
+    } else if (!j.is_today) ch += `<span class="badge">past day · ${esc(j.date)}</span>`;
+    $("chips").innerHTML = ch;
+    // take
+    $("take").innerHTML = (j.take || []).map(l => `<li>${esc(l)}</li>`).join("");
+    $("takeHint").textContent = j.is_today ? "so far today" : new Date(j.day_start_ms + 6 * 3600e3).toLocaleDateString("en-US", {timeZone: TZ, weekday: "long", month: "short", day: "numeric"});
+    // tiles
+    const t = j.tiles;
+    const best = t.best, worst = t.worst;
+    const nm = (x) => x ? esc(x.symbol || short(x.mint)) : "—";
+    $("tiles").innerHTML = `
+      <div class="tile hero ${t.realized_pnl_sol < 0 ? "neg" : ""}"><div class="k">Realized P&amp;L</div><div class="v ${cls(t.realized_pnl_sol)}">${sol(t.realized_pnl_sol)} <span class="small">SOL</span></div><div class="s">${pct(t.realized_pnl_pct, 2)} on ${(t.deployed_sol || 0).toFixed(2)} SOL deployed</div></div>
+      <div class="tile"><div class="k">Trades</div><div class="v">${t.trades}</div><div class="s">${t.closed} closed · ${t.wins}W / ${t.losses}L</div></div>
+      <div class="tile"><div class="k">Win rate</div><div class="v">${t.win_rate == null ? "—" : Math.round(t.win_rate * 100) + "%"}</div>
+        <div class="bar"><span style="width:${(t.win_rate || 0) * 100}%;background:var(--good)"></span><span style="flex:1;background:#f8514955"></span></div></div>
+      <div class="tile"><div class="k">Best trade</div><div class="v ${cls(best && best.pnl_sol)}" style="font-size:1.2rem">${best ? sol(best.pnl_sol) : "—"}</div><div class="s">${nm(best)}${best ? " · " + pct(best.pnl_pct, 0) : ""}</div></div>
+      <div class="tile"><div class="k">Worst trade</div><div class="v ${cls(worst && worst.pnl_sol)}" style="font-size:1.2rem">${worst ? sol(worst.pnl_sol) : "—"}</div><div class="s">${nm(worst)}${worst ? " · " + esc(worst.exit_text || "") : ""}</div></div>
+      <div class="tile"><div class="k">Open now · blocked</div><div class="v">${j.is_today ? (t.open_positions ?? "—") : "—"} <span class="small muted">open</span></div><div class="s">${t.blocks} buy${t.blocks === 1 ? "" : "s"} blocked by gates</div></div>`;
+    renderChart(j);
+    renderTrades(j);
+    renderBlocks(j);
+    renderSpeed(j);
+    renderXV(j);
+    renderLearn(j);
+  }
+
+  function renderChart(j) {
+    const svg = $("chart"), W = svg.clientWidth || 900, H = 270, L = 58, R = 16, T = 18, B = 46;
+    const pts = j.timeline || [], buys = j.markers.buys || [], blocks = j.markers.blocks || [];
+    const deps = (j.speed && j.speed.deploys) || [];
+    const ts = [...pts.map(p => p.ts_ms), ...buys.map(b => b.ts_ms), ...blocks.map(b => b.ts_ms)];
+    let x0, x1;
+    if (ts.length) { x0 = Math.min(...ts) - 30 * 60e3; x1 = Math.max(...ts, j.is_today ? Date.now() : 0) + 20 * 60e3; }
+    else { x0 = j.day_start_ms + 8 * 3600e3; x1 = j.is_today ? Date.now() + 3600e3 : j.day_start_ms + 20 * 3600e3; }
+    x0 = Math.max(x0, j.day_start_ms); x1 = Math.min(x1, j.day_end_ms);
+    if (x1 - x0 < 2 * 3600e3) x1 = Math.min(j.day_end_ms, x0 + 2 * 3600e3);
+    const ys = [0, ...pts.map(p => p.cum_pnl_sol)];
+    let y0 = Math.min(...ys), y1 = Math.max(...ys); const pad = Math.max((y1 - y0) * 0.15, 0.01); y0 -= pad; y1 += pad;
+    const X = (ms) => L + (ms - x0) / (x1 - x0) * (W - L - R), Y = (v) => T + (y1 - v) / (y1 - y0) * (H - T - B);
+    let s = `<defs><linearGradient id="gUp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fb950" stop-opacity=".35"/><stop offset="1" stop-color="#3fb950" stop-opacity="0"/></linearGradient>
+      <linearGradient id="gDn" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#f85149" stop-opacity=".35"/><stop offset="1" stop-color="#f85149" stop-opacity="0"/></linearGradient>
+      <clipPath id="above"><rect x="0" y="0" width="${W}" height="${Y(0)}"/></clipPath><clipPath id="below"><rect x="0" y="${Y(0)}" width="${W}" height="${H}"/></clipPath></defs>`;
+    // grid + y ticks
+    const step = niceStep((y1 - y0) / 4);
+    for (let v = Math.ceil(y0 / step) * step; v <= y1; v += step) {
+      s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="${Math.abs(v) < step / 2 ? "#8b949e" : "#21262d"}" stroke-width="${Math.abs(v) < step / 2 ? 1 : 1}" ${Math.abs(v) < step / 2 ? 'stroke-dasharray="3 3"' : ""}/>`;
+      s += `<text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${(Math.abs(v) < 1e-9 ? 0 : v).toFixed(step < 0.01 ? 3 : 2)}</text>`;
+    }
+    // x ticks (hours CT)
+    const hrs = (x1 - x0) / 3600e3, hstep = hrs > 14 ? 3 : hrs > 7 ? 2 : 1;
+    let tk = Math.ceil(x0 / 3600e3) * 3600e3;
+    for (; tk <= x1; tk += 3600e3) {
+      const hr = Number(new Intl.DateTimeFormat("en-US", {timeZone: TZ, hour: "numeric", hour12: false}).format(new Date(tk)));
+      if (hr % hstep) continue;
+      s += `<line x1="${X(tk)}" x2="${X(tk)}" y1="${T}" y2="${H - B}" stroke="#1b2028"/><text x="${X(tk)}" y="${H - B + 16}" text-anchor="middle">${esc(fmtT.format(new Date(tk)).replace(":00", ""))}</text>`;
+    }
+    // deploy lines
+    deps.forEach(d => { if (d.ts_ms < x0 || d.ts_ms > x1) return;
+      s += `<line x1="${X(d.ts_ms)}" x2="${X(d.ts_ms)}" y1="${T}" y2="${H - B}" stroke="#a371f7" stroke-dasharray="4 4" opacity=".7"/>`;
+      s += `<g data-tip="${esc("Deploy " + d.time + ": " + d.what)}"><rect x="${X(d.ts_ms) - 7}" y="${T - 2}" width="14" height="14" fill="transparent"/><text x="${X(d.ts_ms)}" y="${T + 9}" text-anchor="middle" style="fill:#a371f7">⚙</text></g>`; });
+    // step line
+    let path = `M${X(x0)},${Y(0)}`, cur = 0;
+    pts.forEach(p => { path += ` L${X(p.ts_ms)},${Y(cur)} L${X(p.ts_ms)},${Y(p.cum_pnl_sol)}`; cur = p.cum_pnl_sol; });
+    const xe = j.is_today ? Math.min(Date.now(), x1) : x1;
+    path += ` L${X(xe)},${Y(cur)}`;
+    const area = path + ` L${X(xe)},${Y(0)} L${X(x0)},${Y(0)} Z`;
+    s += `<path d="${area}" fill="url(#gUp)" clip-path="url(#above)"/><path d="${area}" fill="url(#gDn)" clip-path="url(#below)"/>`;
+    s += `<path d="${path}" fill="none" stroke="${cur >= 0 ? "#3fb950" : "#f85149"}" stroke-width="2.2" stroke-linejoin="round"/>`;
+    // buy markers (bottom lane)
+    const lane = H - B + 28;
+    buys.forEach(b => { const x = X(b.ts_ms);
+      s += `<g data-tip="${esc(`Buy ${b.symbol || short(b.mint)} · ${ARM[b.arm] || b.arm} · ${tCT(b.ts_ms)}`)}"><line x1="${x}" x2="${x}" y1="${T}" y2="${H - B}" stroke="#58a6ff" opacity=".13"/><path d="M${x - 5},${lane + 4} L${x + 5},${lane + 4} L${x},${lane - 5} Z" fill="#58a6ff"/></g>`; });
+    blocks.forEach(b => { const x = X(b.ts_ms);
+      s += `<g data-tip="${esc(`Blocked ${b.symbol || short(b.mint)} · ${b.category.replace("_", " ")} · ${tCT(b.ts_ms)}`)}"><text x="${x}" y="${lane + 4}" text-anchor="middle" style="fill:#e3b341;font-size:12px;font-weight:700">✕</text></g>`; });
+    // exit markers on the line
+    pts.forEach(p => { const x = X(p.ts_ms), y = Y(p.cum_pnl_sol);
+      s += `<g data-tip="${esc(`${CATN[p.category] || "Exit"} · ${p.symbol || short(p.mint)} · ${sol(p.pnl_sol)} SOL · ${tCT(p.ts_ms)} · day ${sol(p.cum_pnl_sol)}`)}"><circle cx="${x}" cy="${y}" r="9" fill="transparent"/><circle cx="${x}" cy="${y}" r="4.6" fill="${CAT[p.category] || CAT.other}" stroke="#0d1117" stroke-width="1.5"/></g>`; });
+    if (j.is_today && Date.now() < x1) s += `<line x1="${X(Date.now())}" x2="${X(Date.now())}" y1="${T}" y2="${H - B}" stroke="#58a6ff" opacity=".5"/><text x="${X(Date.now())}" y="${T - 5}" text-anchor="middle" style="fill:#58a6ff">now</text>`;
+    if (!pts.length && !buys.length && !blocks.length) s += `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" style="font-size:13px">No live activity ${j.is_today ? "yet today" : "on this day"}</text>`;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.innerHTML = s;
+    const tip = $("tip");
+    svg.querySelectorAll("[data-tip]").forEach(g => {
+      g.addEventListener("mousemove", (e) => { const r = svg.getBoundingClientRect(); tip.style.display = "block"; tip.textContent = g.getAttribute("data-tip");
+        tip.style.left = Math.min(e.clientX - r.left + 12, r.width - 270) + "px"; tip.style.top = (e.clientY - r.top + 12) + "px"; });
+      g.addEventListener("mouseleave", () => tip.style.display = "none");
+    });
+  }
+  async function loadMomentum() {
+    try {
+      const r = await fetch(`/api/paper/momentum/summary`, {cache: "no-store"});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const f = await r.json();
+      if (!f.enabled) { $("mom").innerHTML = `<div class="empty">Momentum paper test off (PAPER_MOMENTUM_ENABLED=false)</div>`; return; }
+      const T = f.tracks || {}, S = f.sources || {};
+      const row = (n, t) => `<span class="badge">${n}: ${t.closed || 0} closed · ${t.wins || 0}W · <span class="${cls(t.pnl_sol)}">${sol(t.pnl_sol)} SOL</span></span>`;
+      let h = `<div class="chips">${row("live exit", T.live_exit || {})}${row("T30", T.t30 || {})}<span class="badge">${(f.open || []).length} open</span><span class="badge">${f.entries || 0} entries / ${f.scored || 0} scored</span><span class="badge">${f.candidates_now || 0} candidates</span></div>`;
+      h += `<div class="chips" style="margin-top:.3rem"><span class="badge">TG: ${esc((S.telegram || {}).status || "?")} · ${(S.telegram || {}).mentions_received || 0} mentions</span><span class="badge">X: ${esc((S.x || {}).status || "?")}</span><span class="badge">wallet buys: ${(S.cluster || {}).wallet_buys_seen || 0}</span></div>`;
+      h += `<div class="hint" style="margin-top:.4rem">${esc(f.start_ct || "")} → ${esc(f.end_ct || "")} · ${f.active ? "running" : "ended"} · threshold ${f.threshold}</div>`;
+      $("mom").innerHTML = h;
+    } catch (e) { $("mom").innerHTML = `<div class="empty err">Momentum test unavailable: ${esc(e.message)}</div>`; }
+  }
+  async function loadFomoTop() {
+    try {
+      const r = await fetch(`/api/paper/fomo-top/summary`, {cache: "no-store"});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const f = await r.json();
+      if (!f.enabled) { $("ftp").innerHTML = `<div class="empty">Paper test off (PAPER_FOMO_TOP_ENABLED=false)</div>`; return; }
+      const T = f.tracks || {}, L = T.live_exit || {}, W = T.follow_wallet || {};
+      const row = (n, t) => `<span class="badge">${n}: ${t.closed || 0} closed · ${t.wins || 0}W · <span class="${cls(t.pnl_sol)}">${sol(t.pnl_sol)} SOL</span></span>`;
+      let h = `<div class="chips">${row("live exit", L)}${row("exit on wallet sell", W)}<span class="badge">${(f.open || []).length} open</span><span class="badge">${f.would_live_buy || 0}/${f.signals || 0} passed rug+mesh</span></div>`;
+      h += `<div class="hint" style="margin-top:.4rem">${esc(f.start_ct || "")} → ${esc(f.end_ct || "")} · ${f.active ? "running" : "ended"}</div>`;
+      $("ftp").innerHTML = h;
+    } catch (e) { $("ftp").innerHTML = `<div class="empty err">Paper test unavailable: ${esc(e.message)}</div>`; }
+  }
+  async function loadV3() {
+    try {
+      const r = await fetch(`/api/paper/v3/summary`, {cache: "no-store"});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const f = await r.json();
+      if (!f.enabled) { $("v3").innerHTML = `<div class="empty">Paper test off (PAPER_V3_ENABLED=false)</div>`; return; }
+      const T = f.tracks || {};
+      const row = (n, t) => `<span class="badge">${n}: ${t.closed || 0} closed · ${t.wins || 0}W · <span class="${cls(t.pnl_sol)}">${sol(t.pnl_sol)} SOL</span></span>`;
+      let h = `<div class="chips">${row("live exit", T.live_exit || {})}${row("exit on wallet sell", T.follow_wallet || {})}${row("HALF2X_C30", T.half2x_c30 || {})}<span class="badge">${(f.open || []).length} open</span><span class="badge">${f.would_live_buy || 0}/${f.signals || 0} passed rug+mesh</span><span class="badge">fill vs trader (median) ${f.fill_vs_trader_median_pct == null ? "–" : f.fill_vs_trader_median_pct + "%"}</span><span class="badge">${f.watch_trades || 0} watch-only trades</span></div>`;
+      const H = Object.entries(f.by_handle || {});
+      if (H.length) h += `<table style="margin-top:.4rem"><thead><tr><th>Wallet</th><th>Fills</th><th>Fill vs trader</th><th>Live exit</th><th>Wallet sell</th><th>HALF2X_C30</th></tr></thead><tbody>` + H.map(([n, v]) => `<tr><td>${esc(n)}</td><td>${v.fills || 0}</td><td>${v.fill_vs_trader_median_pct == null ? "–" : v.fill_vs_trader_median_pct + "%"}</td>${["live_exit", "follow_wallet", "half2x_c30"].map(k => `<td class="${cls((v[k] || {}).pnl_sol)}">${(v[k] || {}).closed || 0} · ${sol((v[k] || {}).pnl_sol)}</td>`).join("")}</tr>`).join("") + `</tbody></table>`;
+      h += `<div class="hint" style="margin-top:.4rem">${esc(f.start_ct || "")} → ${esc(f.end_ct || "")} · ${f.active ? "running" : "ended"} · promote only with ${esc(f.promotion_rule || "")}</div>`;
+      $("v3").innerHTML = h;
+    } catch (e) { $("v3").innerHTML = `<div class="empty err">Paper test unavailable: ${esc(e.message)}</div>`; }
+  }
+  async function loadWallet() {
+    try {
+      const r = await fetch(`/api/recap/wallet?date=${encodeURIComponent(day)}`, {cache: "no-store"});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      renderWallet(await r.json());
+    } catch (e) { $("wallet").innerHTML = `<div class="empty err">Wallet unavailable: ${esc(e.message)}</div>`; }
+  }
+  let showDust = false, lastWallet = null;
+  function copyText(t, btn) {
+    const done = () => { const o = btn.textContent; btn.textContent = "copied ✓"; setTimeout(() => btn.textContent = o, 1200); };
+    const fallback = () => { const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); done(); } catch (_) {} ta.remove(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, fallback); else fallback();
+  }
+  function spark(series, w = 320, h = 64) {
+    const pts = (series || []).filter(p => p[1] != null);
+    if (pts.length < 2) return `<div class="small muted">not enough points for a chart yet</div>`;
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const X = (v) => 4 + (v - x0) / Math.max(1, x1 - x0) * (w - 8), Y = (v) => h - 6 - (v - y0) / Math.max(1e-9, y1 - y0) * (h - 14);
+    let d = `M${X(pts[0][0])},${Y(pts[0][1])}`;
+    for (let i = 1; i < pts.length; i++) d += ` L${X(pts[i][0])},${Y(pts[i - 1][1])} L${X(pts[i][0])},${Y(pts[i][1])}`;
+    const up = ys[ys.length - 1] >= ys[0], col = up ? "#3fb950" : "#f85149";
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none"><path d="${d} L${X(x1)},${h} L${X(x0)},${h} Z" fill="${col}" opacity=".12"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.8"/>
+      <text x="4" y="10" style="font-size:10px">${ys[0].toFixed(4)}</text><text x="${w - 4}" y="10" text-anchor="end" style="font-size:10px">${ys[ys.length - 1].toFixed(4)}</text></svg>
+      <div class="small muted" style="display:flex;justify-content:space-between"><span>${esc(tCT(x0))}</span><span>${esc(tCT(x1))}</span></div>`;
+  }
+  function renderWallet(j) {
+    lastWallet = j;
+    if (!j.wallets || !j.wallets.length) { $("wallet").innerHTML = `<div class="empty">${esc(j.note || "No wallet configured.")}</div>`; return; }
+    const solUsd = j.sol_usd;
+    $("wallet").innerHTML = j.wallets.map((w, wi) => {
+      const dd = w.day || {};
+      const toks = (w.tokens || []).filter(t => showDust || !t.dust);
+      const tokRows = toks.map(t => `<tr><td><strong>${esc(t.symbol)}</strong>${t.program === "t22" ? ' <span class="badge">T22</span>' : ""}${t.dust ? ' <span class="badge">dust</span>' : ""}</td>
+        <td>${t.amount.toLocaleString("en-US", {maximumFractionDigits: 4})}</td><td>${t.usd != null ? "$" + t.usd.toLocaleString("en-US", {maximumFractionDigits: 2}) : '<span class="muted">no price</span>'}</td>
+        <td><a href="https://dexscreener.com/solana/${esc(t.mint)}" target="_blank" rel="noopener">DEX ↗</a> <a href="https://solscan.io/token/${esc(t.mint)}" target="_blank" rel="noopener">Solscan ↗</a></td></tr>`).join("");
+      const typeCls = (t) => t === "buy" ? "tt-buy" : t === "sell" ? "tt-sell" : t === "failed" ? "tt-failed" : /transfer/.test(t) ? "tt-transfer" : "";
+      const txRows = (w.recent || []).map(x => `<tr><td>${x.ts_ms ? esc(tCT(x.ts_ms)) : "—"}<div class="small muted">${x.ts_ms ? esc(new Date(x.ts_ms).toLocaleDateString("en-US", {timeZone: TZ, month: "short", day: "numeric"})) : ""}</div></td>
+        <td><span class="tx-type ${typeCls(x.type)}">${esc(x.type)}</span>${x.symbol ? ` <span class="small">${esc(x.symbol)}</span>` : ""}</td>
+        <td class="${cls(x.sol_delta)}">${x.sol_delta != null ? sol(x.sol_delta) : "—"}</td><td class="muted">${x.fee_sol ? x.fee_sol.toFixed(6) : "—"}</td>
+        <td><a href="https://solscan.io/tx/${esc(x.sig)}" target="_blank" rel="noopener">${esc(short(x.sig, 5))} ↗</a></td></tr>`).join("");
+      const r = w.rent || {};
+      const rentNote = r.empty_accounts ? `<div class="small" style="margin-top:.5rem;color:var(--gold)">🧹 ${r.empty_accounts} empty token account${r.empty_accounts > 1 ? "s" : ""} still hold ~${r.closable_empty_sol.toFixed(4)} SOL rent${solUsd ? ` (~$${(r.closable_empty_sol * solUsd).toFixed(2)})` : ""} that closing them would return. Shown only, no action taken.</div>` : "";
+      return `<div class="wal">
+        <div>
+          <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap"><strong>${esc(w.label)}</strong><span class="badge ${w.role === "trading" ? "info" : ""}">${esc(w.role)}</span>${w.stale ? '<span class="badge warn">stale</span>' : ""}</div>
+          <div class="addr small" style="margin:.25rem 0 .45rem"><span class="mono">${esc(w.short)}</span>
+            <button class="copy" data-copy="${esc(w.address)}" title="Copy address">copy</button><a href="${esc(w.solscan)}" target="_blank" rel="noopener">Solscan ↗</a></div>
+          <div class="wbig">${w.sol != null ? w.sol.toFixed(4) : "—"} <span class="small muted">SOL</span></div>
+          <div class="wsub">${w.sol_usd_value != null ? `≈ $${w.sol_usd_value.toLocaleString("en-US", {maximumFractionDigits: 2})}` : ""}${solUsd ? ` · SOL $${solUsd.toFixed(2)}` : ""}${w.total_usd != null ? ` · total with tokens ≈ $${w.total_usd.toLocaleString("en-US", {maximumFractionDigits: 2})}` : ""}</div>
+          <div class="delta"><span class="muted small">${j.is_today ? "Start of day → now" : "Start → end of day"}</span>
+            <span class="mono">${dd.start_sol != null ? dd.start_sol.toFixed(4) : "—"} → ${dd.end_sol != null ? dd.end_sol.toFixed(4) : "—"}</span>
+            <strong class="${cls(dd.change_sol)}">${dd.change_sol != null ? sol(dd.change_sol) + " SOL" : "—"}${dd.change_pct != null ? ` (${pct(dd.change_pct, 2)})` : ""}</strong></div>
+          ${spark(dd.series)}
+          <div class="chips" style="margin-top:.45rem">
+            <span class="badge">${dd.tx_count || 0} tx</span>
+            <span class="badge">fees ${dd.fees_sol != null ? dd.fees_sol.toFixed(5) : "—"} SOL</span>
+            <span class="badge">rent paid ${dd.rent_paid_sol != null ? dd.rent_paid_sol.toFixed(4) : "—"}</span>
+            ${dd.rent_recovered_sol ? `<span class="badge ok">rent back ${dd.rent_recovered_sol.toFixed(4)}</span>` : ""}
+            ${dd.transfers_in_sol ? `<span class="badge">in ${sol(dd.transfers_in_sol)}</span>` : ""}${dd.transfers_out_sol ? `<span class="badge warn">out ${sol(dd.transfers_out_sol)}</span>` : ""}
+          </div>
+          <div class="small muted" style="margin-top:.3rem">Balance change includes trading P&amp;L, network/priority fees and token-account rent. Source: ${esc(dd.source || "—")}${dd.snapshots ? ` + ${dd.snapshots} snapshots` : ""}.</div>
+          ${rentNote}
+          ${(w.errors || []).length ? `<div class="small err" style="margin-top:.3rem">${esc(w.errors.join(" · "))}</div>` : ""}
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><span class="small muted">Token holdings${w.tokens_usd ? ` · ≈ $${w.tokens_usd.toLocaleString("en-US", {maximumFractionDigits: 2})}` : ""}</span>
+            ${w.dust_count ? `<button class="copy" data-dust="1">${showDust ? "hide" : "show"} dust (${w.dust_count})</button>` : ""}</div>
+          ${tokRows ? `<table><thead><tr><th>Token</th><th>Amount</th><th>USD</th><th></th></tr></thead><tbody>${tokRows}</tbody></table>` : `<div class="empty">No token holdings${w.dust_count && !showDust ? " above $0.50" : ""}.</div>`}
+          <details style="margin-top:.6rem" ${wi === 0 ? "open" : ""}><summary>Recent transactions (${(w.recent || []).length})</summary>
+            <div class="scroll"><table><thead><tr><th>Time (CT)</th><th>Type</th><th>Δ SOL</th><th>Fee</th><th>Tx</th></tr></thead><tbody>${txRows || '<tr><td colspan="5" class="muted">none</td></tr>'}</tbody></table></div></details>
+        </div></div>`;
+    }).join("");
+    $("wallet").querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", () => copyText(b.getAttribute("data-copy"), b)));
+    $("wallet").querySelectorAll("[data-dust]").forEach(b => b.addEventListener("click", () => { showDust = !showDust; renderWallet(lastWallet); }));
+  }
+  function niceStep(raw) { const p = Math.pow(10, Math.floor(Math.log10(raw || 0.01))); const n = raw / p; return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p; }
+
+  function renderTrades(j) {
+    const tr = (j.trades || []).slice().reverse();
+    $("tradesHint").textContent = tr.length ? `${tr.length} live · newest first` : "";
+    if (!tr.length) { $("trades").innerHTML = `<div class="empty">No live trades ${j.is_today ? "yet today" : "on this day"}.</div>`; return; }
+    $("trades").innerHTML = tr.map(t => {
+      const sp = t.speed || {};
+      const exits = (t.exits || []).map(e => `<span class="ex ${esc(e.category)}" title="${esc(e.reason_text)}">${esc(CATN[e.category] || e.reason)}${e.fraction != null && e.fraction < 0.98 ? ` ${Math.round(e.fraction * 100)}%` : ""} · ${sol(e.pnl_sol)} · ${e.after_s != null ? dur(e.after_s) : ""}${e.slots_behind_scout != null ? ` · ${e.slots_behind_scout} slots` : ""}</span>`).join("") || `<span class="ex other">open</span>`;
+      const stages = [["gates_ms", "#a371f7", "gates"], ["swap_ms", "#58a6ff", "swap"], ["post_fill_ms", "#39c5cf", "post-fill"]].filter(([k]) => sp[k]);
+      const tot = stages.reduce((a, [k]) => a + sp[k], 0);
+      const stageBar = sp.has_stage_timing && tot ? `<div class="bar" title="${esc(stages.map(([k, , n]) => `${n} ${sp[k]} ms`).join(" · "))}">${stages.map(([k, c]) => `<span style="width:${sp[k] / tot * 100}%;background:${c}"></span>`).join("")}</div>
+          <div class="small muted">${stages.map(([k, c, n]) => `<span style="color:${c}">■</span> ${n} ${sp[k]} ms`).join(" &nbsp;")}${sp.mesh_overlap ? " · mesh overlapped" : ""}</div>` : "";
+      const nm = t.symbol || short(t.mint);
+      return `<div class="trade cat-${esc(t.exit_category)} ${t.pnl_sol > 0 ? "win" : ""}">
+        <div class="top"><div><span class="sym">${esc(nm)}</span> <span class="badge">${esc(ARM[t.arm] || t.arm)}</span></div>
+          <div class="pnl ${cls(t.pnl_sol)}">${sol(t.pnl_sol)} <span class="small">SOL</span> <span class="small">${pct(t.pnl_pct, 0)}</span></div></div>
+        <div class="kv">
+          <span class="k">Bought</span><span>${esc(t.entry_time)} · ${(t.spent_sol || t.size_sol).toFixed(2)} SOL${t.multiple != null ? ` → ${t.received_sol.toFixed(4)} (${t.multiple.toFixed(2)}×)` : ""}</span>
+          ${t.scout_wallet || t.scout_label ? `<span class="k">Scout</span><span>${esc(t.scout_label || "")} <span class="mono muted">${esc(short(t.scout_wallet))}</span></span>` : ""}
+          ${t.source_group ? `<span class="k">Source</span><span>${esc(t.source_group)}</span>` : ""}
+          <span class="k">Held</span><span>${dur(t.hold_s)}${t.status === "open" ? " (still open)" : ""}</span>
+          <span class="k">Speed</span><span>${sp.detect_to_open_ms != null ? `${(sp.detect_to_open_ms / 1000).toFixed(2)} s to position` : "—"}${sp.slots_behind_scout != null ? ` · ${sp.slots_behind_scout} slots behind` : ""}${sp.edge_gap_pct != null ? ` · fill ${pct(sp.edge_gap_pct)} vs scout` : ""}</span>
+          ${t.now ? `<span class="k">Now</span><span>${usd(t.now.mcap_usd)} mcap · liq ${usd(t.now.liquidity_usd)}</span>` : ""}
+        </div>
+        <div class="exits">${exits}</div>
+        <div class="why"><strong>Exit:</strong> <span class="muted">${esc(t.exit_text || "open")}</span></div>
+        ${stageBar}
+        ${links(t.mint, t.buy_sig)}
+      </div>`;
+    }).join("");
+  }
+
+  function renderBlocks(j) {
+    const bl = (j.blocks || []).slice().reverse();
+    if (!bl.length) { $("blocks").innerHTML = `<div class="empty">No live buys were blocked ${j.is_today ? "today" : "on this day"}.</div>`; return; }
+    const HL = {0: "0", 60: "1m", 300: "5m", 900: "15m", 3600: "1h"};
+    $("blocks").innerHTML = bl.map(b => {
+      const o = b.outcome || {}, rets = o.returns_by_horizon_s || {};
+      const ks = Object.keys(rets).map(Number).sort((a, c) => a - c);
+      const mx = Math.max(0.05, ...ks.map(k => Math.abs(rets[k])));
+      const spark = ks.length ? `<div class="spark">${ks.map(k => `<div title="${esc(HL[k] || k + "s")}: ${pct(rets[k] * 100, 0)}" style="height:${Math.max(4, Math.abs(rets[k]) / mx * 100)}%;background:${rets[k] >= 0 ? "#3fb950" : "#f85149"}${k === 0 ? ";opacity:.4" : ""}"></div>`).join("")}</div>
+        <div class="spark-l">${ks.map(k => `<span>${esc(HL[k] || k + "s")} ${k ? pct(rets[k] * 100, 0) : ""}</span>`).join("")}</div>` : "";
+      const now = b.now && b.now.chg_since_block_pct != null ? `<span class="${cls(b.now.chg_since_block_pct)}">${pct(b.now.chg_since_block_pct, 0)}</span> since block · ${usd(b.now.mcap_usd)} mcap` : "";
+      const label = {missed_winner: "missed winner", missed_pump: "missed pump", dodged_rug: "dodged rug", dodged_dump: "dodged dump", flat: "flat", unknown: "pending"}[o.verdict] || o.verdict;
+      return `<div class="block">
+        <div class="top" style="display:flex;justify-content:space-between;gap:.5rem;align-items:baseline">
+          <div><strong>${esc(b.symbol || short(b.mint))}</strong> <span class="badge">${esc(b.label)}</span> ${b.arm ? `<span class="badge">${esc(ARM[b.arm] || b.arm)}</span>` : ""}</div>
+          <span class="verdict v-${esc(o.verdict)}">${esc(label)}</span></div>
+        <div class="small muted" style="margin-top:.2rem">${esc(b.time)} · ${esc(o.verdict_text || "")}</div>
+        <ul class="small" style="margin:.35rem 0 0;padding-left:1.1rem">${(b.reasons || []).slice(0, 4).map(r => `<li>${esc(r)}</li>`).join("")}</ul>
+        ${spark}
+        ${now ? `<div class="small" style="margin-top:.35rem">Now: ${now}</div>` : ""}
+        ${links(b.mint)}
+      </div>`;
+    }).join("");
+  }
+
+  function renderSpeed(j) {
+    const s = j.speed || {};
+    const tile = (k, v, sub) => `<div class="tile"><div class="k">${k}</div><div class="big">${v}</div><div class="s">${sub || ""}</div></div>`;
+    let h = `<div class="speedgrid">
+      ${tile("Scout buy → our position", s.median_detect_to_open_s != null ? s.median_detect_to_open_s.toFixed(2) + " s" : "—", "median")}
+      ${tile("Entry slots behind scout", s.median_slots_behind != null ? s.median_slots_behind : "—", "median, on-chain slots")}
+      ${tile("Exit slots behind scout", s.median_exit_slots_behind != null ? s.median_exit_slots_behind : "—", "when we followed his sell")}
+      ${tile("Our fill vs scout", s.median_fill_vs_scout_pct != null ? pct(s.median_fill_vs_scout_pct) : "—", "median price gap")}
+    </div>`;
+    const bk = s.buckets || [];
+    if (bk.length) {
+      h += `<table><thead><tr><th>Window</th><th>Trades</th><th>To position</th><th>Gates</th><th>Swap</th><th>Slots behind</th><th>Exit slots</th><th>Fill vs scout</th></tr></thead><tbody>
+        ${bk.map(b => `<tr title="${esc(b.what || "")}"><td>${esc(b.label)}${b.what ? `<div class="small muted">${esc(b.what)}</div>` : ""}</td><td>${b.trades}</td>
+          <td>${b.median_detect_to_open_s != null ? b.median_detect_to_open_s.toFixed(2) + " s" : "—"}</td><td>${b.median_gates_ms != null ? Math.round(b.median_gates_ms) + " ms" : "—"}</td>
+          <td>${b.median_swap_ms != null ? Math.round(b.median_swap_ms) + " ms" : "—"}</td><td>${b.median_slots_behind ?? "—"}</td><td>${b.median_exit_slots_behind ?? "—"}</td>
+          <td>${b.median_fill_vs_scout_pct != null ? pct(b.median_fill_vs_scout_pct) : "—"}</td></tr>`).join("")}</tbody></table>`;
+    }
+    h += `<div class="small muted" style="margin-top:.5rem">${s.stage_timed_trades || 0} trade(s) with per-stage timing (added by the 12:01 PM CT Oct 8 deploy). Slot numbers come from a keyless public RPC lookup, cached.</div>`;
+    $("speed").innerHTML = h;
+  }
+
+  function xvTable(x, title) {
+    const mx = Math.max(...x.variants.map(v => Math.abs(v.pnl_sol)), 1e-9);
+    return `<div class="small muted" style="margin:.2rem 0 .3rem">${esc(title)}${x.signals ? ` · ${x.signals} paper entries` : ""}</div>
+      <table><thead><tr><th>Variant</th><th>Closed</th><th>Win rate</th><th>Paper P&amp;L</th><th>vs ${esc(x.base)}</th><th>Beats / loses to ${esc(x.base)}</th><th style="width:22%"></th></tr></thead><tbody>
+      ${x.variants.map(v => `<tr><td><strong>${esc(v.variant)}</strong>${v.variant === x.base ? ' <span class="badge ok">live plan</span>' : ""}${v.label ? `<div class="muted small">${esc(v.label)}</div>` : ""}</td><td>${v.n}</td>
+        <td>${v.win_rate != null ? Math.round(v.win_rate * 100) + "%" : "—"}</td><td class="${cls(v.pnl_sol)}">${sol(v.pnl_sol)}</td>
+        <td class="${cls(v.vs_base_sol)}">${v.variant === x.base ? "—" : sol(v.vs_base_sol)}</td>
+        <td>${v.beats_base == null ? "—" : `${v.beats_base} / ${v.loses_to_base}`}</td>
+        <td><div class="bar"><span style="width:${Math.abs(v.pnl_sol) / mx * 100}%;background:${v.pnl_sol >= 0 ? "#3fb950" : "#f85149"}"></span></div></td></tr>`).join("")}
+      </tbody></table>`;
+  }
+  function renderXV(j) {
+    const x = j.exit_variants;
+    if (!x) { $("xv").innerHTML = `<div class="empty">The paper-only exit test hasn't written results yet. It will show here per variant once <span class="mono">data/exit_variants.jsonl</span> has rows.</div>`; return; }
+    let h = x.variants && x.variants.length ? xvTable(x, "This day") : `<div class="empty">${esc(x.note || "No closed variant results for this day yet.")}</div>`;
+    if (x.all_time && x.all_time.variants && x.all_time.variants.length) h += `<div style="height:.7rem"></div>` + xvTable(x.all_time, "Whole test so far (restart-gap rows left out)");
+    h += `<div class="small muted" style="margin-top:.4rem">Paper only, P&amp;L per 0.10 SOL. Live trades keep plan ${esc(x.base)}. Watch for a lead that rests on one or two big coins.</div>`;
+    $("xv").innerHTML = h;
+  }
+
+  function renderLearn(j) {
+    const L = j.learning || {}, arms = L.arms || {}, P = j.paper || {}, tr = j.processed_trial || {};
+    const rows = Object.entries(arms).sort((a, b) => b[1].signals - a[1].signals);
+    let h = `<div class="grid2"><div><div class="small muted" style="margin-bottom:.3rem">Signals the coach logged (live + paper arms)</div>
+      ${rows.length ? `<table><thead><tr><th>Arm</th><th>Signals</th><th>Entered</th><th>Skipped</th></tr></thead><tbody>${rows.map(([a, v]) => `<tr><td>${esc(ARM[a] || a)}</td><td>${v.signals}</td><td>${v.enter}</td><td>${v.skip}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">No signals logged.</div>`}
+      </div><div><div class="small muted" style="margin-bottom:.3rem">Top skip reasons</div>
+      ${(L.top_skip_reasons || []).length ? `<table><tbody>${L.top_skip_reasons.map(([r, n]) => `<tr><td>${esc(r.replace(/#/g, "n"))}</td><td style="text-align:right">${n}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">—</div>`}
+      </div></div>`;
+    const pp = Object.entries(P);
+    h += `<div class="chips" style="margin-top:.7rem">${pp.map(([k, v]) => `<span class="badge">paper ${esc(k)}: ${v.closed} closed · ${v.wins}W · <span class="${cls(v.pnl_sol)}">${sol(v.pnl_sol)} SOL</span></span>`).join("")}
+      ${tr.rows ? `<span class="badge ${tr.bad_trigger_live_buys ? "bad" : "ok"}">processed-commitment trial: ${tr.rows} checked · ${esc(Object.entries(tr.verdicts || {}).map(([k, v]) => `${k} ${v}`).join(" · "))} · bad live buys ${tr.bad_trigger_live_buys}</span>` : `<span class="badge">processed-commitment trial: no checks yet</span>`}</div>`;
+    $("learn").innerHTML = h;
+  }
+
+  // Embedded in BTCP Drafts (Signal Coach → Today): external links go to the parent, which opens the default browser.
+  if (window.top !== window.self) {
+    document.documentElement.classList.add("embedded");
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest && e.target.closest("a[href]");
+      if (!a) return;
+      if (/^https:\/\/(dexscreener\.com|solscan\.io)\//.test(a.href)) {
+        e.preventDefault();
+        window.parent.postMessage({type: "fomo-recap:open", url: a.href}, "*");
+      } else if (a.target === "_blank") { e.preventDefault(); location.href = a.href; }
+    });
+  }
+  $("prev").onclick = () => setDay(shift(day, -1));
+  $("next").onclick = () => { const n = shift(day, 1); if (n <= todayCT()) setDay(n); };
+  $("today").onclick = () => setDay(todayCT());
+  $("day").max = todayCT();
+  $("day").onchange = (e) => e.target.value && setDay(e.target.value);
+  window.addEventListener("resize", () => last && renderChart(last));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && day === todayCT()) load(); });
+  setDay(day);
+})();
+</script>
+</body>
+</html>

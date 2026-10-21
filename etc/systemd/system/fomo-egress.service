@@ -1,0 +1,13 @@
+[Unit]
+Description=fomo egress allowlist (nft table inet fomo_egress; matches only fomo uids)
+After=network-online.target
+Wants=network-online.target
+Before=fomo-coach.service fomo-signer.service fomo-tg-watcher.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/fomo-egress apply
+
+[Install]
+WantedBy=multi-user.target

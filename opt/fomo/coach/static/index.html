@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fomo Signal Coach</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --good: #3fb950;
+      --warn: #d29922;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: #21262d;
+    }
+    .badge.ok { color: var(--good); border-color: #238636; }
+    main { padding: 1.25rem 1.5rem 3rem; max-width: 960px; margin: 0 auto; }
+    .meta { color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem; }
+    .grid { display: grid; gap: 1rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.15rem;
+    }
+    .card h2 {
+      margin: 0 0 0.35rem;
+      font-size: 1.1rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .score {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.35rem;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; color: var(--muted); font-size: 0.875rem; margin: 0.5rem 0; }
+    .row strong { color: var(--text); font-weight: 500; }
+    ul.reasons { margin: 0.5rem 0 0; padding-left: 1.15rem; color: var(--muted); font-size: 0.875rem; }
+    .handoff {
+      margin-top: 0.85rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      background: #1c2128;
+      border: 1px dashed var(--warn);
+      color: #e3b341;
+      font-size: 0.85rem;
+    }
+    .jev {
+      margin-top: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      background: #1c2128;
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .jev strong { color: var(--text); font-weight: 500; }
+    .jev .act-show { color: var(--good); }
+    .jev .act-skip { color: var(--warn); }
+    .jev .act-escalate_human { color: #f85149; }
+    .mesh, .gate {
+      margin-top: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      background: #1c2128;
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .mesh strong, .gate strong { color: var(--text); font-weight: 500; }
+    .mesh .flags { margin: 0.35rem 0 0; padding-left: 1.1rem; }
+    .mesh .sev-high, .mesh .sev-critical, .mesh .sev-danger { color: #f85149; }
+    .mesh .sev-medium { color: #e3b341; }
+    .mesh .stale { color: #e3b341; }
+    .gate.act-show { border-color: #3fb95066; }
+    .gate.act-skip { border-color: #f8514966; }
+    .gate.act-escalate_human { border-color: #e3b34166; }
+    .gate .act-show { color: var(--good); }
+    .gate .act-skip { color: #f85149; }
+    .gate .act-escalate_human { color: #e3b341; }
+    .plan {
+      margin-top: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      background: #1c2128;
+      border: 1px solid #d2992244;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .plan strong { color: var(--text); font-weight: 500; }
+    .plan.blocked { border-color: #f8514966; }
+    .plan ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
+    .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
+    code { font-size: 0.8em; color: #c9d1d9; }
+    a { color: var(--accent); }
+
+    .jup {
+      margin-top: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      background: #1c2128;
+      border: 1px solid #388bfd55;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .jup strong { color: var(--text); font-weight: 500; }
+    .jup-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.45rem; }
+    .jup-actions button {
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #21262d;
+      color: var(--accent);
+    }
+    .jup-actions button:hover { border-color: var(--accent); }
+    .jup-actions button:disabled { opacity: 0.5; cursor: wait; }
+    .jup pre {
+      margin: 0.4rem 0 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-size: 0.7rem;
+      color: #c9d1d9;
+      max-height: 8rem;
+      overflow: auto;
+    }
+    .lane { margin: 0.6rem 0 1.2rem; }
+    .lane h3 { font-size: 0.95rem; margin: 0 0 0.4rem; }
+    .pchip { margin-top: 0.55rem; padding: 0.5rem 0.7rem; border-radius: 8px; background: #161b22;
+             border: 1px solid var(--border); font-size: 0.78rem; color: var(--muted); }
+    .pchip strong { color: var(--text); font-weight: 500; }
+    .lat { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
+    .lat span { padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid var(--border); font-size: 0.72rem; }
+    .xcards { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
+    .xcard { padding: 0.15rem 0.5rem; border-radius: 6px; border: 1px solid var(--border); font-size: 0.72rem; }
+    .xcard.fired { border-color: #f85149; color: #f85149; }
+    .xcard.armed { border-color: #3fb950; color: #3fb950; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Fomo Signal Coach</h1>
+      <span class="badge ok" id="mode">recommend-only</span>
+      <span class="badge" id="ver">…</span>
+      <a class="badge" href="/recap" style="color:#58a6ff;border-color:#1f6feb;text-decoration:none">📅 Day Recap</a>
+    </div>
+    <div class="badge" id="poll">polling /api/signals</div>
+  </header>
+  <main>
+    <p class="meta">
+      Demo UI — polls signals above score 50. Jupiter quote chips are dry-run unless JUPITER_EXEC_ENABLED.
+      API root: <a href="/"><code>/</code></a> · Health: <a href="/health"><code>/health</code></a>
+    </p>
+    <section class="lane">
+      <h3>CA lane (pump.fun curve · latency · exit signals · paper) <span class="badge" id="paperSum">paper …</span></h3>
+      <div class="grid" id="lane"><div class="empty">No CA ingests yet.</div></div>
+    </section>
+    <section class="lane" id="fomoSec">
+      <h3>FOMO top traders — on-chain watch · paper profile <code>fomo_top_trader</code> <span class="badge" id="fomoSum">…</span></h3>
+      <p class="meta" style="color:var(--warn)"><strong>Paper only. No-loss is NOT guaranteed:</strong> the trailing/breakeven/hard
+        stops fill at the next observed price mark (~15 s), so gaps, rugs and slippage can fill well below the stop.
+        Low-priority source: yields to the Telegram/Fluffy CA lane; never an auto-trade.</p>
+      <div class="meta" id="fomoStatus">loading…</div>
+      <div class="grid" id="fomoPos"></div>
+      <details open><summary>Detected FOMO trades (verified: FOMO co-signer fee payer + trader signed)</summary><div id="fomoTrades" class="meta"></div></details>
+      <details><summary>Strategy decisions (anti-chase / convergence)</summary><div id="fomoDec" class="meta"></div></details>
+      <details><summary>Wallet quality (from verified FOMO co-signed activity)</summary><div id="fomoWallets" class="meta"></div></details>
+    </section>
+    <section class="lane" id="scoutSec">
+      <h3>Scout-wallet paper test (v1.13) — arms A scout_solo · B scout_confirmed · C smugcalls_control <span class="badge" id="scoutSum">…</span></h3>
+      <p class="meta" style="color:var(--warn)"><strong>Paper only. Nothing is traded, and a no-loss result is NOT guaranteed:</strong> fills are simulated on the pump
+        curve at detection +2 s / +5 s, with curve fees and tx cost included. Exits fill at the next ~2 s mark, so gaps and rugs can fill below the stop.
+        Target: 200 signals per arm or 14 days. Isolated source; yields to the Telegram/Fluffy CA lane.</p>
+      <div class="meta" id="scoutStatus">loading…</div>
+      <div id="scoutTable" class="meta"></div>
+      <details open><summary>Recent signals (entries and skips with reasons)</summary><div id="scoutSignals" class="meta"></div></details>
+      <details><summary>Watched wallets and skip filters</summary><div id="scoutRoster" class="meta"></div></details>
+    </section>
+    <section class="lane" id="liveSec">
+      <h3>LIVE auto-trade (v1.14) <span class="badge" id="liveSum">…</span></h3>
+      <p class="meta" style="color:var(--warn)"><strong>Real money when enabled.</strong> New buys need JUPITER_EXEC_ENABLED=true AND LIVE_AUTOTRADE_ENABLED=true
+        AND the arm listed in LIVE_ARMS. Kill switch: the button below, or create the file
+        <code>~/Library/Application Support/FOMO-Signal-Coach/KILL</code> (no new buys while it exists).</p>
+      <div class="meta" id="liveBasic">loading…</div>
+      <div class="meta" id="liveAuth">
+        <span id="liveLocked">Full panel and kill/resume need the local API token (stored in ~/.config/fomo-coach/live-api-token):
+          <input id="liveTok" type="password" size="28" placeholder="paste token (kept in this browser only)">
+          <button onclick="liveSaveTok()">unlock</button></span>
+        <button onclick="liveKill(false)" style="background:#a33;color:#fff">KILL (no new buys)</button>
+        <button onclick="liveKill(true)" style="background:#700;color:#fff">KILL + sell all</button>
+        <button onclick="liveResume()">resume</button>
+        <button onclick="liveForget()">forget token</button>
+      </div>
+      <div class="meta" id="liveCaps"></div>
+      <div id="livePos" class="meta"></div>
+      <details><summary>Live router decisions (buys / refusals with reasons)</summary><div id="liveDec" class="meta"></div></details>
+    </section>
+    <div class="grid" id="cards">
+      <div class="empty">Loading signals…</div>
+    </div>
+  </main>
+  <script>
+    const cardsEl = document.getElementById("cards");
+    const pollEl = document.getElementById("poll");
+    const verEl = document.getElementById("ver");
+
+    async function loadHealth() {
+      try {
+        const r = await fetch("/health");
+        const j = await r.json();
+        verEl.textContent = "v" + (j.version || "?");
+        if (j.demo_mode) {
+          verEl.textContent += " · demo";
+        }
+        if (j.demo_loop && j.demo_loop.running) {
+          verEl.textContent += " · loop";
+        }
+      } catch (_) {
+        verEl.textContent = "offline";
+      }
+    }
+
+    function cardHtml(s) {
+      const traders = (s.trader_handles || []).slice(0, 8).join(", ") || "—";
+      const reasons = (s.reasons || []).map(r => `<li>${escapeHtml(r)}</li>`).join("");
+      return `
+        <article class="card">
+          <h2>
+            <span>$${escapeHtml(s.symbol || "?")}</span>
+            <span class="score">${Number(s.score).toFixed(1)}</span>
+            <span class="badge">${escapeHtml(s.chain || "?")}</span>
+          </h2>
+          <div class="row">
+            <span>traders <strong>${s.unique_traders}</strong></span>
+            <span>buys <strong>${s.buy_count}</strong></span>
+            <span>window <strong>${s.window_minutes || "?"}m</strong></span>
+          </div>
+          <div class="row"><span>handles <strong>${escapeHtml(traders)}</strong></span></div>
+          <div class="row"><code>${escapeHtml(s.token_address || "")}</code></div>
+          <ul class="reasons">${reasons}</ul>
+          ${gateChip(s.gate)}
+          ${curveChip(s.curve, s.fast_gate)}
+          ${latencyChip(s.latency)}
+          ${exitChip(s.exit_signals, s.stream)}
+          ${paperChip(s.paper)}
+          ${planChip(s.plan)}
+          ${meshChip(s.mesh)}
+          ${jevChip(s.jev)}
+          ${jupChip(s)}
+          <div class="handoff">
+            Recommend only — Fluffy plan is clip + ladder (no auto-buy). Jupiter quote dry-run until EXEC enabled.
+          </div>
+        </article>`;
+    }
+
+    function fmtUsd(v, digits) {
+      if (v == null || isNaN(Number(v))) return "—";
+      const n = Number(v);
+      if (n !== 0 && Math.abs(n) < 0.01) return "$" + n.toPrecision(3);
+      if (Math.abs(n) >= 1e9) return "$" + (n / 1e9).toFixed(2) + "B";
+      if (Math.abs(n) >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
+      if (Math.abs(n) >= 1e3) return "$" + (n / 1e3).toFixed(1) + "K";
+      return "$" + n.toFixed(digits == null ? 2 : digits);
+    }
+
+
+    function planChip(plan) {
+      if (!plan) return "";
+      const blocked = plan.blocked === true;
+      const entry = plan.entry || {};
+      const exits = plan.exits || {};
+      const ladder = (exits.ladder || []).map(l => {
+        const px = l.price_usd != null ? " (~" + fmtUsd(l.price_usd) + ")" : "";
+        return `<li><strong>${escapeHtml(l.label || "")}</strong> ${Number(l.multiple)}× · sell <strong>${Math.round(Number(l.sell_frac_of_entry||0)*100)}%</strong> of entry${px}</li>`;
+      }).join("");
+      const suggest = entry.sol_suggest != null ? Number(entry.sol_suggest).toFixed(2) : "?";
+      const band = (entry.sol_min != null && entry.sol_max != null)
+        ? `${Number(entry.sol_min).toFixed(2)}–${Number(entry.sol_max).toFixed(2)} SOL` : "";
+      const trail = exits.trailing_stop_pct_off_high != null ? Math.round(Number(exits.trailing_stop_pct_off_high)*100) + "%" : "?";
+      const hard = exits.hard_stop_pct_from_entry != null ? Math.round(Number(exits.hard_stop_pct_from_entry)*100) + "%" : "?";
+      const live = plan.live_exec ? "LIVE" : "dry-run / recommend-only";
+      return `<div class="plan${blocked ? " blocked" : ""}">
+        Plan <strong>${escapeHtml(plan.profile || "meme")}</strong> ·
+        entry clip <strong>${escapeHtml(suggest)} SOL</strong>${band ? ` (${escapeHtml(band)})` : ""} ·
+        <strong>${escapeHtml(live)}</strong>
+        ${blocked ? `<div style="margin-top:0.3rem;color:#f85149">No entry — gate blocked / skip</div>` : ""}
+        ${!blocked && plan.actionable === false ? `<div style="margin-top:0.3rem;color:#e3b341">Wait — gate not show yet (${escapeHtml(plan.gate_action || "?")})</div>` : ""}
+        <ul>${ladder}
+          <li>Trail remainder ~<strong>${escapeHtml(trail)}</strong> off high · hard stop −<strong>${escapeHtml(hard)}</strong> from entry</li>
+        </ul>
+        <div style="margin-top:0.35rem;opacity:.85">${escapeHtml((exits.summary || plan.fail_closed || "").slice(0,220))}</div>
+      </div>`;
+    }
+
+    function gateChip(g) {
+      if (!g) return `<div class="gate">Gate: <strong>pending</strong></div>`;
+      const act = g.action || "escalate_human";
+      const label = { show: "show (recommend-only)", skip: g.blocked ? "BLOCKED" : "skip", escalate_human: "escalate to human" }[act] || act;
+      const reasons = (g.reasons || []).slice(0, 4).map(r => escapeHtml(String(r))).join(" · ");
+      const warns = (g.warnings || []).slice(0, 4).map(r => escapeHtml(String(r))).join(" · ");
+      return `<div class="gate act-${escapeHtml(act)}">
+        Gate <span class="act-${escapeHtml(act)}"><strong>${escapeHtml(label)}</strong></span> ·
+        by <strong>${escapeHtml(g.decided_by || "?")}</strong> ·
+        mesh <strong>${escapeHtml(g.mesh_status || "?")}</strong> · jev <strong>${escapeHtml(g.jev_status || "?")}</strong>${g.jev_role === "advisory" ? " (advisory)" : ""} · lane <strong>${escapeHtml(g.lane || "standard")}</strong>
+        ${reasons ? `<div style="margin-top:0.3rem">${reasons}</div>` : ""}
+        ${warns ? `<div style="margin-top:0.2rem;color:#e3b341">⚠ ${warns}</div>` : ""}
+      </div>`;
+    }
+
+    function meshChip(m) {
+      if (!m) return `<div class="mesh">QP Data Mesh: <strong>pending</strong></div>`;
+      if (m.status !== "ok") {
+        return `<div class="mesh">QP Data Mesh <strong>${escapeHtml(m.status || "?")}</strong>
+          ${m.note || m.error ? `<div style="margin-top:0.3rem">${escapeHtml(String(m.note || m.error).slice(0, 160))}</div>` : ""}</div>`;
+      }
+      const r = m.risk || {};
+      const src = m.sources || {};
+      const stale = m.stale ? ` · <span class="stale"><strong>stale</strong></span>` : "";
+      const flags = (r.flags || []).slice(0, 6).map(f =>
+        `<li class="sev-${escapeHtml(f.severity || "")}">${escapeHtml(f.flag || "")} <span style="opacity:.7">(${escapeHtml(f.severity || "?")})</span></li>`).join("");
+      const tri = v => v === true ? "LIVE" : (v === false ? "renounced" : "?");
+      const curve = (m.pump || {}).curve || null;
+      let curveTxt = "";
+      if ((m.pump || {}).pump_like || (curve && curve.status === "ok")) {
+        if (curve && curve.status === "ok") {
+          curveTxt = `<div>pump curve <strong>${curve.graduation_progress_pct != null ? Number(curve.graduation_progress_pct).toFixed(1) + "%" : "?"}</strong> · migrated <strong>${curve.migrated == null ? "?" : curve.migrated}</strong> · curve px <strong>${fmtUsd(curve.curve_price_usd)}</strong></div>`;
+        } else {
+          curveTxt = `<div>pump.fun mint · curve lane <strong>${escapeHtml((curve && curve.status) || "n/a")}</strong></div>`;
+        }
+      }
+      const ch = m.change_24h_pct != null ? ` (${Number(m.change_24h_pct).toFixed(1)}% 24h)` : "";
+      return `<div class="mesh">
+        QP Data Mesh${stale} ·
+        price <strong>${fmtUsd(m.price_usd)}</strong>${escapeHtml(ch)} <span style="opacity:.7">via ${escapeHtml(m.price_source || "?")}</span> ·
+        liq <strong>${fmtUsd(m.liquidity_usd, 0)}</strong> <span style="opacity:.7">(${escapeHtml(m.liquidity_source || "—")})</span> ·
+        mcap <strong>${fmtUsd(m.market_cap_usd, 0)}</strong> <span style="opacity:.7">(${escapeHtml(m.market_cap_source || "—")})</span>
+        <div>risk <strong>${escapeHtml(r.verdict || r.status || "?")}</strong> via ${escapeHtml(((src.token_risk || {}).source) || "?")} ·
+          mint auth <strong>${tri(r.mint_authority_live)}</strong> · freeze auth <strong>${tri(r.freeze_authority_live)}</strong> ·
+          honeypot <strong>${r.honeypot === true ? "YES" : (r.honeypot === false ? "no" : "?")}</strong>
+          ${r.top10_holder_pct != null ? ` · top10 <strong>${Number(r.top10_holder_pct).toFixed(1)}%</strong>` : ""}</div>
+        ${curveTxt}
+        ${flags ? `<ul class="flags">${flags}</ul>` : ""}
+      </div>`;
+    }
+
+    function jevChip(jev) {
+      if (!jev) {
+        return `<div class="jev">Jev gate: <strong>pending</strong></div>`;
+      }
+      const act = jev.action || "escalate_human";
+      const status = jev.jev_status || "?";
+      const safe = jev.safe_to_surface === true ? "yes" : "no";
+      const q = jev.signal_quality != null ? Number(jev.signal_quality).toFixed(2) : "—";
+      const note = jev.note ? `<div style="margin-top:0.35rem">${escapeHtml(String(jev.note).slice(0,160))}</div>` : "";
+      return `<div class="jev">
+        Jev <strong>${escapeHtml(status)}</strong> ·
+        action <span class="act-${escapeHtml(act)}"><strong>${escapeHtml(act)}</strong></span> ·
+        quality <strong>${escapeHtml(q)}</strong> ·
+        safe_to_surface <strong>${safe}</strong>
+        ${note}
+      </div>`;
+    }
+
+
+    function jupChip(s) {
+      const mint = s.token_address || "";
+      const id = "jup-" + mint.slice(0, 12);
+      const sug = (s.plan && s.plan.entry && s.plan.entry.sol_suggest_lamports) || "";
+      return `<div class="jup" data-mint="${escapeHtml(mint)}" data-plan-lamports="${escapeHtml(String(sug))}">
+        Jupiter <strong>quote</strong> (dry-run) · SOL pair
+        <div class="jup-actions">
+          <button type="button" data-side="buy" data-mint="${escapeHtml(mint)}" onclick="quoteJupiter(this)">Quote buy via Jupiter</button>
+          <button type="button" data-side="sell" data-mint="${escapeHtml(mint)}" onclick="quoteJupiter(this)">Quote sell via Jupiter</button>
+        </div>
+        <pre id="${escapeHtml(id)}" hidden></pre>
+      </div>`;
+    }
+
+    async function quoteJupiter(btn) {
+      const mint = btn.getAttribute("data-mint");
+      const side = btn.getAttribute("data-side");
+      const box = btn.closest(".jup");
+      const pre = box.querySelector("pre");
+      const buttons = box.querySelectorAll("button");
+      buttons.forEach(b => b.disabled = true);
+      pre.hidden = false;
+      pre.textContent = "quoting…";
+      const body = { mint, side };
+      const planLamports = box.getAttribute("data-plan-lamports");
+      if (side === "buy" && planLamports) {
+        body.amount = planLamports; // recommend clip from plan (still dry-run)
+      }
+      if (side === "sell") {
+        // Demo atomic amount — replace with real balance units before any enable
+        body.amount = "1000000";
+      }
+      try {
+        const r = await fetch("/api/exec/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const j = await r.json();
+        const bits = [
+          "ok=" + j.ok,
+          "dry_run=" + j.dry_run,
+          "side=" + (j.side || side),
+          "in=" + (j.input_mint || "").slice(0, 8) + "…",
+          "out=" + (j.output_mint || "").slice(0, 8) + "…",
+          "outAmount=" + (j.out_amount || "—"),
+          "router=" + (j.router || "—"),
+          "tx=" + (j.transaction_ready ? "unsigned ready" : "quote-only"),
+          "note=" + (j.note || j.detail || j.error || ""),
+        ];
+        pre.textContent = bits.join("\n");
+      } catch (e) {
+        pre.textContent = "quote failed";
+      } finally {
+        buttons.forEach(b => b.disabled = false);
+      }
+    }
+
+    function escapeHtml(t) {
+      return String(t)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function curveChip(c, g) {
+      if (!c) return "";
+      const lane = (g && g.lane) || "?";
+      if (c.status !== "ok") return `<div class="pchip">Curve: <strong>${escapeHtml(c.status || "?")}</strong> · lane ${escapeHtml(lane)}</div>`;
+      const px = c.price_sol != null ? Number(c.price_sol).toExponential(3) : "—";
+      const prog = c.progress_pct != null ? Number(c.progress_pct).toFixed(1) + "%" : "—";
+      return `<div class="pchip">Curve <strong>${escapeHtml(c.phase || "?")}</strong> · lane <strong>${escapeHtml(lane)}</strong> ·
+        price ${px} SOL · mcap ${c.mcap_sol != null ? Number(c.mcap_sol).toFixed(1) : "—"} SOL · progress ${prog} ·
+        curve SOL ${c.real_sol_reserves_sol != null ? Number(c.real_sol_reserves_sol).toFixed(2) : "—"} ·
+        read ${c.elapsed_ms != null ? c.elapsed_ms + "ms" : "?"} (${escapeHtml(c.rpc || "")})</div>`;
+    }
+    function latencyChip(t) {
+      if (!t || !t.stages) return "";
+      const parts = t.stages.map(s => `<span>${escapeHtml(s.stage)} +${s.since_start_ms != null ? s.since_start_ms : "?"}ms${s.took_ms != null ? " (" + s.took_ms + ")" : ""}</span>`).join("");
+      return `<div class="pchip">Latency <strong>${t.total_ms != null ? t.total_ms + "ms" : "…"}</strong> · ${escapeHtml(t.status || "")}<div class="lat">${parts}</div></div>`;
+    }
+    function exitChip(cards, stream) {
+      if (!cards) return "";
+      const xs = cards.map(c => `<span class="xcard${c.fired ? " fired" : (c.armed ? " armed" : "")}" title="${escapeHtml(c.detail || "")}">${escapeHtml(c.kind)}${c.fired ? " → " + escapeHtml(c.action) : ""}</span>`).join("");
+      const st = stream ? ` · stream ${escapeHtml(stream.status)} · trades ${stream.trades_seen} · 30s buy ${stream.window_buy_sol} / sell ${stream.window_sell_sol} SOL` : "";
+      return `<div class="pchip">Exit signals${st}<div class="xcards">${xs}</div></div>`;
+    }
+    function paperChip(p) {
+      if (!p) return "";
+      const pn = p.pnl || {};
+      const fills = (p.fills || []).filter(f => !f.failed).map(f => `${escapeHtml(f.reason)} ${f.multiple != null ? f.multiple + "×" : ""} ${Number(f.sol).toFixed(3)} SOL`).join(" · ");
+      return `<div class="pchip">Paper <strong>${escapeHtml(p.status)}</strong>${p.exit_reason ? " (" + escapeHtml(p.exit_reason) + ")" : ""} ·
+        ${p.entry_sol} SOL @ ${Number(p.entry_price_sol).toExponential(3)} via ${escapeHtml(p.entry_venue)} ·
+        now ${pn.multiple_now != null ? pn.multiple_now + "×" : "—"} · PnL <strong>${pn.pnl_sol != null ? pn.pnl_sol.toFixed(4) : "—"} SOL</strong>
+        ${fills ? `<div style="margin-top:0.3rem">${fills}</div>` : ""}</div>`;
+    }
+    function laneCard(it) {
+      return `<article class="card"><h2><span>${escapeHtml((it.mint || "").slice(0, 6))}…${escapeHtml((it.mint || "").slice(-4))}</span>
+        <span class="badge">${escapeHtml(it.source || "?")}</span></h2>
+        <div class="row"><code>${escapeHtml(it.mint || "")}</code></div>
+        ${curveChip(it.curve, it.fast_gate)}${latencyChip(it.latency)}${exitChip(it.exit_signals, it.stream)}${paperChip(it.paper)}
+        <div class="handoff">Paper / recommend-only — no signing, JUPITER_EXEC_ENABLED=false.</div></article>`;
+    }
+    async function loadLane() {
+      try {
+        const j = await (await fetch("/api/pump/lane")).json();
+        const ps = j.paper_summary || {};
+        document.getElementById("paperSum").textContent = `paper ${ps.enabled ? "on" : "off"} · open ${ps.open} · closed ${ps.closed} · PnL ${ps.total_pnl_sol} SOL`;
+        const el = document.getElementById("lane");
+        el.innerHTML = (j.items || []).length ? j.items.map(laneCard).join("") : `<div class="empty">No CA ingests yet.</div>`;
+      } catch (_) {}
+    }
+
+    function ago(ms) { if (!ms) return "—"; const s = (Date.now() - ms) / 1000; return s < 120 ? Math.round(s) + "s" : s < 7200 ? Math.round(s / 60) + "m" : Math.round(s / 3600) + "h"; }
+    function short(m) { return m ? escapeHtml(m.slice(0, 5)) + "…" + escapeHtml(m.slice(-4)) : "—"; }
+    function fomoPosCard(p) {
+      const m = p.meta || {}, pn = p.pnl || {};
+      const stop = p.stop_price_sol && p.entry_price_sol ? ((p.stop_price_sol / p.entry_price_sol - 1) * 100).toFixed(1) + "%" : "—";
+      const fills = (p.fills || []).filter(f => !f.failed).map(f => `${escapeHtml(f.reason)} ${f.multiple != null ? f.multiple + "×" : ""}`).join(" · ");
+      return `<article class="card"><h2><span>${escapeHtml(m.symbol || "")} ${short(p.mint)}</span><span class="badge">${escapeHtml(p.status)}</span></h2>
+        <div class="row">via ${escapeHtml((m.handles || []).join(", "))} · ${p.entry_sol} SOL · ${escapeHtml(p.entry_venue)}</div>
+        <div class="pchip">now ${pn.multiple_now != null ? pn.multiple_now + "×" : "—"} · PnL <strong>${pn.pnl_sol != null ? pn.pnl_sol.toFixed(4) : "—"} SOL (${pn.pnl_pct != null ? pn.pnl_pct + "%" : "—"})</strong>
+          · stop ${escapeHtml(p.stop_kind || "")} ${stop} vs entry${p.exit_reason ? " · exit " + escapeHtml(p.exit_reason) : ""}${fills ? "<div>" + fills + "</div>" : ""}</div>
+        ${(m.flags || []).length ? `<div class="meta">${m.flags.map(escapeHtml).join(" · ")}</div>` : ""}</article>`;
+    }
+    async function loadFomo() {
+      try {
+        const j = await (await fetch("/api/fomo-onchain")).json();
+        const s = j.source || {}, st = j.strategy || {}, sm = st.summary || {}, w = s.wallets || {}, sub = s.subscriptions || {};
+        document.getElementById("fomoSum").textContent = `kept ${w.kept ?? 0}/${w.seeded ?? 0} · open ${sm.open ?? 0} · closed ${sm.closed ?? 0} · realized ${sm.realized_pnl_sol ?? 0} SOL`;
+        document.getElementById("fomoStatus").innerHTML = `${s.running ? "running" : "stopped"} · subs ${sub.acked}/${sub.wanted} on ${sub.connected}/${sub.connections} ws ·
+          ${s.ws_msg_rate_per_s_60s} msg/s · sweep ${s.sweep ? s.sweep.done + "/" + s.sweep.total : "—"} · buys ${s.stats?.buys || 0} · sells ${s.stats?.sells || 0} ·
+          keyless ${escapeHtml(j.keyless?.state || "?")} (annotation only) · entry ${st.config?.entry_sol} SOL`;
+        const ps = st.positions || [];
+        document.getElementById("fomoPos").innerHTML = ps.length ? ps.map(fomoPosCard).join("") : `<div class="empty">No fomo_top_trader paper positions yet.</div>`;
+        document.getElementById("fomoTrades").innerHTML = (j.trades || []).slice(0, 25).map(t =>
+          `<div>${ago(t.block_ms)} · <strong>${escapeHtml(t.handle)}</strong> ${escapeHtml(t.kind)} ${short(t.mint)} $${t.usd != null ? Number(t.usd).toFixed(0) : "?"}${t.sold_fraction != null ? " (" + Math.round(t.sold_fraction * 100) + "%)" : ""} · lag ${Math.round((t.detect_lag_ms || 0) / 1000)}s</div>`).join("") || "none yet";
+        document.getElementById("fomoDec").innerHTML = (st.decisions || []).slice(0, 25).map(d =>
+          `<div>${ago(d.ts_ms)} · ${escapeHtml(d.symbol || "")} ${short(d.mint)} → <strong>${escapeHtml(d.decision)}</strong> · ${escapeHtml((d.reasons || []).join("; "))} · ${escapeHtml((d.wallets || []).join(", "))}</div>`).join("") || "none yet";
+      } catch (_) {}
+    }
+    async function loadFomoWallets() {
+      try {
+        const j = await (await fetch("/api/fomo-onchain/wallets")).json();
+        const c = j.counts || {};
+        const rows = (j.wallets || []).map(w => `<tr><td>#${w.rank}</td><td>${escapeHtml(w.handle)}${w.handle_confirmed ? " ✓" : ""}</td><td>${escapeHtml(w.status)}</td>
+          <td><strong>${w.quality}</strong></td><td>${w.cosigned_trades}+${w.live_trades}</td><td>${ago(w.last_cosigned_ms)}</td><td>${escapeHtml(w.drop_reason || "")}</td></tr>`).join("");
+        document.getElementById("fomoWallets").innerHTML = `kept ${c.kept} · dropped ${c.dropped} · pending ${c.pending} — ${escapeHtml(j.score_formula || "")}
+          <table style="width:100%;font-size:0.8rem"><tr><th>rank</th><th>handle</th><th>status</th><th>quality</th><th>co-signed (sweep+live)</th><th>last</th><th>note</th></tr>${rows}</table>`;
+      } catch (_) {}
+    }
+
+    function pct(x) { return x == null ? "—" : (x > 0 ? "+" : "") + Number(x).toFixed(1) + "%"; }
+    async function loadScout() {
+      try {
+        const j = await (await fetch("/api/scout")).json();
+        const r = j.report || {}, s = j.source || {}, sub = s.subscriptions || {}, wc = s.wallets || {}, seen = r.seen || {};
+        const arms = r.arms || {};
+        document.getElementById("scoutSum").textContent = Object.entries(arms).map(([a, v]) => `${a} ${v.progress || ""}`).join(" · ");
+        document.getElementById("scoutStatus").innerHTML = `${s.running ? "running" : (s.enabled ? "starting" : "disabled")} · wallets ${escapeHtml(JSON.stringify(wc))} ·
+          subs ${sub.acked}/${sub.wanted} on ${sub.connected}/${sub.connections} ws (${escapeHtml(s.subscription_key || "")}) · ${s.ws_msg_rate_per_s_60s} msg/s ·
+          scout buys ${seen.scout_buys || 0} · confirmer buys ${seen.confirmer_buys || 0} · SmugCalls CAs ${seen.smugcalls_received || 0} ·
+          rpc ${escapeHtml(JSON.stringify(s.stats || {}))}`;
+        const rows = (r.rows || []).map(x => `<tr><td>${escapeHtml(x.arm)}</td><td>${escapeHtml(x.rule)}</td><td>+${x.lat_s}s</td><td>${x.entries}</td><td>${x.open}</td>
+          <td>${x.closed}</td><td>${x.win_rate == null ? "—" : Math.round(x.win_rate * 100) + "%"}</td><td>${pct(x.avg_pnl_pct)}</td><td>${pct(x.median_pnl_pct)}</td>
+          <td>${x.total_pnl_sol}</td><td>${pct(x.avg_edge_gap_pct)}</td><td>${pct(x.median_edge_gap_pct)}</td><td>${pct(x.avg_pnl_pct_excl_dump_k)}</td></tr>`).join("");
+        const skips = Object.entries(arms).map(([a, v]) => `<div><strong>${escapeHtml(a)}</strong>: ${escapeHtml(JSON.stringify(v.skip_reasons || {}))}</div>`).join("");
+        document.getElementById("scoutTable").innerHTML = (rows ? `<table style="width:100%;font-size:0.8rem"><tr><th>arm</th><th>exit rule</th><th>fill</th>
+          <th>entries</th><th>open</th><th>closed</th><th>win</th><th>avg PnL</th><th>median PnL</th><th>Σ SOL</th><th>avg edge gap</th><th>median gap</th>
+          <th>avg excl. dump-k≥3</th></tr>${rows}</table>` : `<div class="empty">No scout paper entries yet.</div>`) +
+          `<div class="meta">PnL is per trade after fees: ${escapeHtml(r.fee_model || "")}. Edge gap = our fill price vs the scout's entry price (positive means we paid more).</div>` + skips;
+        const v = await (await fetch("/api/scout/signals")).json();
+        document.getElementById("scoutSignals").innerHTML = (v.signals || []).slice(0, 30).map(g =>
+          `<div>${ago(g.ts_ms)} · <strong>${escapeHtml(g.arm)}</strong> ${short(g.mint)} → <strong>${escapeHtml(g.decision)}</strong>
+          ${g.scout ? "· " + escapeHtml(g.scout) : ""}${g.confirmer ? " + " + escapeHtml(g.confirmer) : ""}${g.mcap_usd != null ? " · $" + Math.round(g.mcap_usd) : ""}
+          ${(g.reasons || []).length ? "· " + escapeHtml(g.reasons.join("; ")) : ""}</div>`).join("") || "none yet";
+        const ros = (j.roster || []).map(w => `${escapeHtml(w.label)} (${escapeHtml(w.role)}) b${w.buys}/s${w.sells} ${w.last_ms ? ago(w.last_ms) : ""}`).join(" · ");
+        document.getElementById("scoutRoster").innerHTML = `<div>${ros}</div><div>filters: ${escapeHtml(JSON.stringify(j.filters || {}))}</div>`;
+      } catch (_) {}
+    }
+
+    async function loadSignals() {
+      try {
+        const r = await fetch("/api/signals?min_score=50");
+        const j = await r.json();
+        const list = j.signals || [];
+        pollEl.textContent = list.length
+          ? `${list.length} signal(s) · refreshed ${new Date().toLocaleTimeString()}`
+          : `no signals ≥50 · ${new Date().toLocaleTimeString()}`;
+        if (!list.length) {
+          cardsEl.innerHTML = `<div class="empty">No signals yet. Demo loop should auto-seed when DEMO_MODE=true; or run <code>scripts/demo_feed.py</code>. Live feed needs FOMOAPI_KEY.</div>`;
+          return;
+        }
+        cardsEl.innerHTML = list.map(cardHtml).join("");
+      } catch (e) {
+        pollEl.textContent = "poll error";
+        cardsEl.innerHTML = `<div class="empty">Failed to reach /api/signals</div>`;
+      }
+    }
+
+    loadHealth();
+    loadSignals();
+    loadLane();
+    setInterval(loadSignals, 5000);
+    setInterval(loadLane, 3000);
+    loadFomo(); loadFomoWallets();
+    setInterval(loadFomo, 10000);
+    setInterval(loadFomoWallets, 30000);
+    loadScout();
+    setInterval(loadScout, 10000);
+    // ---- v1.14 live panel ----
+    function liveTok() { return localStorage.getItem("liveTok") || ""; }
+    function liveSaveTok() { const v = document.getElementById("liveTok").value.trim(); if (v) localStorage.setItem("liveTok", v); document.getElementById("liveTok").value = ""; loadLive(); }
+    function liveForget() { localStorage.removeItem("liveTok"); loadLive(); }
+    async function livePost(path, body) {
+      const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Live-Token": liveTok()}, body: JSON.stringify(body || {})});
+      if (!r.ok) { alert(`${path}: HTTP ${r.status} (token missing/wrong?) — the KILL file always works`); return; }
+      loadLive();
+    }
+    function liveKill(all) { if (confirm(all ? "KILL and SELL ALL open live positions now?" : "Stop all new live buys?")) livePost("/api/live/kill", {sell_all: all}); }
+    function liveResume() { if (confirm("Resume live buys?")) livePost("/api/live/resume", {}); }
+    async function loadLive() {
+      try {
+        const h = await (await fetch("/health")).json();
+        const L = h.live || {};
+        document.getElementById("liveSum").textContent = L.buys_enabled ? (L.kill ? "KILLED" : "LIVE BUYS ON") : "buys off";
+        document.getElementById("liveBasic").innerHTML = `exec ${L.exec_enabled} · autotrade ${L.autotrade_enabled} · arms ${escapeHtml((L.arms || []).join(", ") || "none")} ·
+          kill ${L.kill} · open ${L.open_positions} · trades today ${L.trades_today} · realized today ${L.realized_pnl_today_sol} SOL · unrealized ${L.unrealized_open_sol} SOL
+          ${(L.warnings || []).map(w => `<div style="color:var(--warn)">⚠ ${escapeHtml(w)}</div>`).join("")}`;
+        if (!liveTok()) { document.getElementById("liveLocked").style.display = ""; document.getElementById("liveCaps").textContent = ""; return; }
+        const r = await fetch("/api/live/status", {headers: {"X-Live-Token": liveTok()}});
+        if (r.status === 401) { document.getElementById("liveCaps").textContent = "token rejected"; document.getElementById("liveLocked").style.display = ""; return; }
+        const j = await r.json();
+        document.getElementById("liveLocked").style.display = "none";
+        const c = j.caps || {};
+        document.getElementById("liveCaps").innerHTML = `wallet ${escapeHtml(j.wallet || "?")} · SOL ${j.sol_balance_cached ?? "?"} · reserve ${c.min_sol_reserve} ·
+          open ${c.open} · trades ${c.trades_today} · loss today ${escapeHtml(c.loss_today_sol || "")} · max/trade ${c.max_sol_per_trade} ·
+          sizes ${escapeHtml(JSON.stringify(j.sizes_sol || {}))} · slippage buy ${c.buy_slippage_bps} / sell ${escapeHtml(JSON.stringify(c.sell_slippage_steps_bps))} ·
+          kill file ${j.kill && j.kill.file} · API kill ${j.kill && j.kill.api}`;
+        const rows = (j.positions || []).map(p => `<tr><td>${escapeHtml(p.arm)}</td><td><a href="https://solscan.io/token/${escapeHtml(p.mint)}" target="_blank">${escapeHtml(p.mint.slice(0, 8))}…</a></td>
+          <td>${p.status}${p.exit_pending ? " (exit pending: " + escapeHtml(p.exit_pending) + ")" : ""}</td><td>${p.size_sol}</td>
+          <td>${pct(p.pnl && p.pnl.pnl_pct)}</td><td>${p.pnl ? p.pnl.pnl_sol : ""}</td><td>${escapeHtml(p.exit_reason || "")}</td>
+          <td>${p.buy_sig ? `<a href="https://solscan.io/tx/${escapeHtml(p.buy_sig)}" target="_blank">buy tx</a>` : ""}</td><td>${escapeHtml((p.flags || []).join(" "))}</td></tr>`).join("");
+        document.getElementById("livePos").innerHTML = rows ? `<table style="width:100%;font-size:0.8rem"><tr><th>arm</th><th>mint</th><th>status</th><th>SOL</th><th>PnL %</th><th>PnL SOL</th><th>exit</th><th>tx</th><th>flags</th></tr>${rows}</table>` : `<div class="empty">No live positions.</div>`;
+        document.getElementById("liveDec").innerHTML = (j.decisions || []).map(d => `<div>${new Date(d.ts_ms).toLocaleTimeString()} ${escapeHtml(d.arm || "")} ${escapeHtml((d.mint || "").slice(0, 8))}… <b>${escapeHtml(d.decision)}</b> ${escapeHtml((d.reasons || []).join("; "))}</div>`).join("");
+      } catch (_) {}
+    }
+    loadLive();
+    setInterval(loadLive, 5000);
+
+  </script>
+</body>
+</html>

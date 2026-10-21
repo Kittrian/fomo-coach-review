@@ -1,0 +1,35 @@
+[Unit]
+Description=fomo policy signer — the only holder of the wallet key (SIGNER_MODE in /etc/fomo-signer/signer.env)
+After=network-online.target fomo-egress.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fomo-signer
+Group=fomo-signer
+WorkingDirectory=/opt/fomo-signer
+EnvironmentFile=/etc/fomo-signer/signer.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/opt/fomo-signer/app
+Environment=FOMO_ENV_CREDS=signer-env,sweep-config FOMO_KEYPAIR_CRED=keypair
+Environment=SIGNER_STATE_DIR=/var/lib/fomo-signer SIGNER_HALT_FILE=/var/lib/fomo-signer/HALT SIGNER_ALLOWED_USERS=fomo
+LoadCredentialEncrypted=signer-env:/etc/credstore.encrypted/fomo-signer-env.cred
+LoadCredentialEncrypted=keypair:/etc/credstore.encrypted/fomo-signer-keypair.cred
+LoadCredentialEncrypted=sweep-config:/etc/credstore.encrypted/fomo-sweep-config.cred
+ExecStart=/opt/fomo-signer/.venv/bin/python /opt/fomo-signer/bin/credexec.py /opt/fomo-signer/.venv/bin/python -m fomo_signer.server
+RuntimeDirectory=fomo-signer
+RuntimeDirectoryMode=0750
+StateDirectory=fomo-signer
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/fomo-signer
+InaccessiblePaths=/opt/fomo
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryDenyWriteExecute=no
+MemoryMax=384M
+CPUQuota=50%
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

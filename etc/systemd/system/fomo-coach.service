@@ -1,0 +1,25 @@
+[Unit]
+Description=Fomo Signal Coach (backend) — PAPER until cutover
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fomo
+Group=fomo
+WorkingDirectory=/opt/fomo/coach
+Environment=HOME=/opt/fomo/state PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 FOMO_ENV_CREDS=coach-secrets
+LoadCredentialEncrypted=coach-secrets:/etc/credstore.encrypted/fomo-coach-secrets.cred
+ExecStart=/opt/fomo/coach/.venv/bin/python /opt/fomo/bin/credexec.py /opt/fomo/coach/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8790
+RuntimeDirectory=fomo
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+ReadWritePaths=/opt/fomo/coach/data /opt/fomo/coach/logs /opt/fomo/state
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+StandardOutput=append:/opt/fomo/coach/logs/coach.log
+StandardError=append:/opt/fomo/coach/logs/coach.err.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

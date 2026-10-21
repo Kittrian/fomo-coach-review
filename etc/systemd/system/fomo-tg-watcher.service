@@ -1,0 +1,28 @@
+[Unit]
+Description=Fomo Telegram watcher (backend) — DISABLED until cutover (one Telegram session must never run on two hosts)
+After=network-online.target fomo-coach.service
+Wants=network-online.target
+# hard guard: only the cutover script creates this file (after the Mac watcher is stopped)
+ConditionPathExists=/opt/fomo/state/TG_CUTOVER_OK
+
+[Service]
+Type=simple
+User=fomo
+Group=fomo
+WorkingDirectory=/opt/fomo/tg-watcher
+Environment=HOME=/opt/fomo/state PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 FOMO_ENV_CREDS=tg-secrets FOMO_TG_SESSION_CRED=tg-session
+LoadCredentialEncrypted=tg-secrets:/etc/credstore.encrypted/fomo-tg-secrets.cred
+LoadCredentialEncrypted=tg-session:/etc/credstore.encrypted/fomo-tg-session.cred
+ExecStart=/opt/fomo/tg-watcher/.venv/bin/python /opt/fomo/bin/credexec.py /bin/bash /opt/fomo/tg-watcher/run_watcher.sh
+RuntimeDirectory=fomo-tg
+RuntimeDirectoryMode=0700
+ReadWritePaths=/opt/fomo/tg-watcher/logs /opt/fomo/state
+ReadOnlyPaths=-/run/fomo
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+StandardOutput=append:/opt/fomo/tg-watcher/logs/watcher.log
+StandardError=append:/opt/fomo/tg-watcher/logs/watcher.err.log
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
