@@ -34,6 +34,33 @@ def alert(kind, level, msg, every_s=6 * 3600, **extra):
     subprocess.run(["logger", "-t", "fomo-guard", f"{level} {kind}: {msg}"])
 def clear(kind): st["last_alert"].pop(kind, None)
 def restart(why, flat_required):
+    # README hard rule: every watchdog restart requires a fresh, healthy, provably-flat snapshot.
+    # Apply it even when the old caller passes flat_required=False; that flag must not bypass position safety.
+    try:
+        with urllib.request.urlopen(HEALTH, timeout=5) as response:
+            fresh = json.load(response)
+    except Exception as exc:
+        alert("restart_deferred", "CRIT",
+              f"refused coach restart ({why}): cannot verify flat state ({type(exc).__name__}); human recovery needed",
+              900)
+        return
+    live_fresh = fresh.get("live") if isinstance(fresh, dict) else None
+    fields = ("open_positions", "inflight_buys", "pending_buys")
+    if not fresh.get("ok") or not isinstance(live_fresh, dict) or any(k not in live_fresh for k in fields):
+        alert("restart_deferred", "CRIT",
+              f"refused coach restart ({why}): health is not sufficient to prove zero open/in-flight/pending trades",
+              900)
+        return
+    try:
+        busy_fresh = sum(int(live_fresh[k] or 0) for k in fields)
+    except (TypeError, ValueError):
+        busy_fresh = -1
+    if busy_fresh != 0:
+        alert("restart_deferred", "WARN",
+              f"deferred coach restart ({why}): fresh snapshot shows open={live_fresh.get('open_positions')}, "
+              f"inflight={live_fresh.get('inflight_buys')}, pending={live_fresh.get('pending_buys')}",
+              900)
+        return
     st["restarts"] = [t for t in st["restarts"] if NOW - t < 3600]
     if len(st["restarts"]) >= 3:
         alert("restart_limit", "CRIT", f"wanted to restart coach ({why}) but 3 restarts in the last hour - leaving it for a human", 1800); return

@@ -872,7 +872,9 @@ async def swap(*, side: str, mint: str, amount: int, slippage_bps: int = 0, clie
             except SenderError as exc:
                 tm["sender"] = "rpc_fallback"
                 tm["sender_error"] = str(exc)[:80]
-                maybe_accepted = not exc.definite
+                # A parallel RPC copy may already be in flight. A definite Sender refusal says nothing about
+                # that independent copy, so never clear its "may have landed" guard (or try a Jupiter fallback).
+                maybe_accepted = maybe_accepted or not exc.definite
             tm["sender_ms"] = _ms(t_send)
         if tm["sender"] == "sender":
             if c["sender_also_rpc"] and not par_send:      # same signed tx (same signature) → can only land once
@@ -951,8 +953,12 @@ async def _confirm_loop(sig, signed, cl, c, tm, side, mint, p, sender, t_c, t_en
                 pass
         try:
             await asyncio.wait_for(ev.wait(), timeout=c["confirm_poll_s"])
-            if ev.is_set() and not tm.get("ws_woke"):
-                tm["ws_woke"] = True
+            if ev.is_set():
+                if not tm.get("ws_woke"):
+                    tm["ws_woke"] = True
+                # signatureSubscribe sends a one-shot notification at the requested commitment. Clear its wake-up
+                # event after observing it; otherwise a lagging status RPC leaves ev set and this loop busy-polls.
+                ev.clear()
         except asyncio.TimeoutError:
             pass
     tm["confirm_ms"] = _ms(t_c)
